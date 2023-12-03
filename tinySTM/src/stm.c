@@ -224,10 +224,7 @@ struct {
   { "delay", cm_delay },
   { "timestamp", cm_timestamp },
   { "karma", cm_karma },
-<<<<<<< HEAD
-=======
   { "polka", cm_polka },
->>>>>>> b2f0181 (polka added)
   { NULL, NULL }
 };
 #endif /* CM == CM_MODULAR */
