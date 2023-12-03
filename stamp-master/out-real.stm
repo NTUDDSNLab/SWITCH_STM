@@ -1,0 +1,133 @@
+Executing: ./bayes/bayes -v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t 8
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Random seed                = 1
+Number of vars             = 32
+Number of records          = 4096
+Max num parents            = 10
+% chance of parent         = 40
+Insert penalty             = 2
+Max num edge learned / var = 8
+Operation quality factor   = 1.000000
+Generating data... done.
+Generating adtree... done.
+Adtree time = 11.903858
+Learning structure...done.
+Learn time = 3.525754
+Learn score  = -65732.273438
+Actual score = -64654.265625
+Executing: ./genome/genome -g16384 -s64 -n16777216 -t 8
+Creating gene and segments... 
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+done.
+Gene length     = 16384
+Segment length  = 64
+Number segments = 16777216
+Sequencing gene... done.
+Time = 1.260274
+Sequence matches gene: yes
+Deallocating memory... done.
+Executing: ./intruder/intruder -a10 -l128 -n262144 -s1 -t 8
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Percent attack  = 10
+Max data length = 128
+Num flow        = 262144
+Random seed     = 1
+Num attack      = 29395
+Elapsed time    = 12.888966 seconds
+Num found       = 29395
+Executing: ./kmeans/kmeans -m40 -n40 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p 8
+Executing: ./kmeans/kmeans -m15 -n15 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p 8
+Executing: ./labyrinth/labyrinth -i labyrinth/inputs/random-x512-y512-z7-n512.txt -t 8
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Maze dimensions = 512 x 512 x 7
+Paths to route  = 512
+Paths routed    = 512
+Elapsed time    = 11.943118 seconds
+Verification passed.
+Executing: ./ssca2/ssca2 -s20 -i1.0 -u1.0 -l3 -p3 -t 8
+
+HPCS SSCA #2 Graph Analysis Executable Specification:
+Running...
+
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+
+Number of processors:       8
+Problem Scale:              20
+Max parallel edges:         3
+Percent int weights:        0.600000
+Probability unidirectional: 1.000000
+Probability inter-clique:   1.000000
+Subgraph edge length:       3
+Kernel 3 data structure:    2
+
+
+Scalable Data Generator - genScalData() beginning execution...
+Finished generating edges
+No. of intra-clique edges - 22043427
+No. of inter-clique edges - 890631
+Total no. of edges        - 22934058
+
+Time taken for Scalable Data Generation is  4.665949 sec.
+
+
+	genScalData() completed execution.
+
+Kernel 1 - computeGraph() beginning execution...
+
+	computeGraph() completed execution.
+
+Time taken for kernel 1 is  2.184176 sec.
+
+Time taken for all is  6.850125 sec.
+
+Executing: ./vacation/vacation -n2 -q90 -u98 -r1048576 -t4194304 -c 8
+Initializing manager... done.
+Initializing clients... done.
+    Transactions        = 4194304
+    Clients             = 8
+    Transactions/client = 524288
+    Queries/transaction = 2
+    Relations           = 1048576
+    Query percent       = 90
+    Query range         = 943718
+    Percent user        = 98
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Running clients... done.
+Time = 3.451319
+Checking tables... done.
+Deallocating memory... done.
+Executing: ./vacation/vacation -n4 -q60 -u90 -r1048576 -t4194304 -c 8
+Initializing manager... done.
+Initializing clients... done.
+    Transactions        = 4194304
+    Clients             = 8
+    Transactions/client = 524288
+    Queries/transaction = 4
+    Relations           = 1048576
+    Query percent       = 60
+    Query range         = 629146
+    Percent user        = 90
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Running clients... done.
+Time = 5.347895
+Checking tables... done.
+Deallocating memory... done.
+Executing: ./yada/yada -a15 -i yada/inputs/ttimeu1000000.2 -t 8
+
+WARNING: set contention manager polka
+THE CM POLICY IS polka
+Angle constraint = 15.000000
+Reading input... 
