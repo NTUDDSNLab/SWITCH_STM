@@ -426,6 +426,12 @@
                                         } \
                                         stm_init(); \
                                         mod_mem_init(0); \
+                                        const char *cm = "polka"; \
+                                        if (stm_set_parameter("cm_policy", (void*)cm) == 1) \
+                                          printf("\nWARNING: set contention manager %s\n", cm); \
+                                        const char *s; \
+                                        if (stm_get_parameter("cm_policy", &s) == 1) \
+                                          printf("THE CM POLICY IS %s\n", s); \
                                         if (getenv("STM_STATS") != NULL) { \
                                           mod_stats_init(); \
                                         }

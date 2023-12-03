@@ -75,18 +75,18 @@ DEFINES += -DDESIGN=WRITE_BACK_ETL
 ########################################################################
 
 # Pick one contention manager (CM)
-DEFINES += -DCM=CM_SUICIDE
+# DEFINES += -DCM=CM_SUICIDE
 # DEFINES += -DCM=CM_DELAY
 # DEFINES += -DCM=CM_BACKOFF
-# DEFINES += -DCM=CM_MODULAR
+DEFINES += -DCM=CM_MODULAR
 
 ########################################################################
 # Enable irrevocable mode (required for using the library with a
 # compiler).
 ########################################################################
 
-DEFINES += -DIRREVOCABLE_ENABLED
-# DEFINES += -UIRREVOCABLE_ENABLED
+# DEFINES += -DIRREVOCABLE_ENABLED
+DEFINES += -UIRREVOCABLE_ENABLED
 
 ########################################################################
 # Maintain detailed internal statistics.  Statistics are stored in
@@ -134,8 +134,8 @@ DEFINES += -UUSE_BLOOM_FILTER
 # enabling this feature.
 ########################################################################
 
-# DEFINES += -DEPOCH_GC
-DEFINES += -UEPOCH_GC
+DEFINES += -DEPOCH_GC
+# DEFINES += -UEPOCH_GC
 
 ########################################################################
 # Keep track of conflicts between transactions and notifies the
@@ -261,7 +261,7 @@ D := $(D:CM_SUICIDE=0)
 D := $(D:CM_DELAY=1)
 D := $(D:CM_BACKOFF=2)
 D := $(D:CM_MODULAR=3)
-D += -DCM_SUICIDE=0 -DCM_DELAY=1 -DCM_BACKOFF=2 -DCM_MODULAR=3
+D += -DCM_SUICIDE=0 -DCM_DELAY=1 -DCM_BACKOFF=2 -DCM_MODULAR=3 
 
 ifneq (,$(findstring -DEPOCH_GC,$(DEFINES)))
   GC := $(SRCDIR)/gc.o

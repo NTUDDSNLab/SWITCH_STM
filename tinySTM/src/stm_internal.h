@@ -102,6 +102,9 @@
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_MODULAR
+# ifndef MAX_BACKOFF
+#  define MAX_BACKOFF                   (1UL << 31)
+# endif /* MAX_BACKOFF*/
 # define VR_THRESHOLD                   "VR_THRESHOLD"
 # ifndef VR_THRESHOLD_DEFAULT
 #  define VR_THRESHOLD_DEFAULT          3                   /* -1 means no visible reads. 0 means always use visible reads. */
@@ -281,7 +284,7 @@ typedef struct w_entry {                /* Write set entry */
       stm_word_t mask;                  /* Write mask */
       stm_word_t version;               /* Version overwritten */
       volatile stm_word_t *lock;        /* Pointer to lock (for fast access) */
-#if CM == CM_MODULAR || defined(CONFLICT_TRACKING)
+#if CM == CM_MODULAR || defined(CONFLICT_TRACKING) 
       struct stm_tx *tx;                /* Transaction owning the write set */
 #endif /* CM == CM_MODULAR || defined(CONFLICT_TRACKING) */
       union {
@@ -334,6 +337,8 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_DELAY || CM == CM_MODULAR
   volatile stm_word_t *c_lock;          /* Pointer to contented lock (cause of abort) */
+  unsigned int polka_backoff;
+  struct stm_tx *enemy_tx;
 #endif /* CM == CM_DELAY || CM == CM_MODULAR */
 #if CM == CM_BACKOFF
   unsigned long backoff;                /* Maximum backoff duration */
@@ -395,6 +400,7 @@ typedef struct {
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_MODULAR
   int (*contention_manager)(stm_tx_t *, stm_tx_t *, int);
+  const char *cm_policy;
 #endif /* CM == CM_MODULAR */
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
@@ -402,7 +408,7 @@ typedef struct {
 
 extern global_t _tinystm;
 
-#if CM == CM_MODULAR
+#if CM == CM_MODULAR 
 # define KILL_SELF                      0x00
 # define KILL_OTHER                     0x01
 # define DELAY_RESTART                  0x04
@@ -909,6 +915,8 @@ int_stm_prepare(stm_tx_t *tx)
     goto start;
   }
 #if CM == CM_MODULAR
+  //if (tx->c_lock == NULL)//add by moran(polka)
+    //tx->polka_backoff = 0;//add by Moran(polka)
   if (tx->stat_retries == 0)
     tx->timestamp = tx->start;
 #endif /* CM == CM_MODULAR */
@@ -944,6 +952,8 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 #if CM == CM_MODULAR
   stm_word_t t;
+  const char *my_policy;
+  volatile int j;
 #endif /* CM == CM_MODULAR */
 
   PRINT_DEBUG("==> stm_rollback(%p[%lu-%lu])\n", tx, (unsigned long)tx->start, (unsigned long)tx->end);
@@ -1035,6 +1045,20 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_DELAY || CM == CM_MODULAR
+  stm_get_parameter("cm_policy", &my_policy); 
+  if (strcmp(my_policy, "polka") == 0){
+    /* cm policy is polka */
+    if (tx->polka_backoff !=0){
+      //printf("here runs polka\n");
+      if (tx->polka_backoff <MAX_BACKOFF){
+        tx->polka_backoff <<= 1;
+      } 
+      //printf("tx->polka_backoff : %u\n", tx->polka_backoff);
+      for (j = 0; j < tx->polka_backoff; j++) {
+        // Do nothing 
+      }
+    } 
+  }
   /* Wait until contented lock is free */
   if (tx->c_lock != NULL) {
     /* Busy waiting (yielding is expensive) */
@@ -1045,11 +1069,15 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
     }
     tx->c_lock = NULL;
   }
+  else{
+    //printf("tx->lock is NULL\n");
+  }
 #endif /* CM == CM_DELAY || CM == CM_MODULAR */
 
   /* Don't prepare a new transaction if no retry. */
   if (tx->attr.no_retry || (reason & STM_ABORT_NO_RETRY) == STM_ABORT_NO_RETRY) {
     tx->nesting = 0;
+    printf("no retry");
     return;
   }
 
@@ -1412,6 +1440,8 @@ int_stm_commit(stm_tx_t *tx)
 
 #if CM == CM_MODULAR
   tx->visible_reads = 0;
+  tx->polka_backoff = 0;//add by moran(polka)
+  tx->enemy_tx = NULL;//add by moran(polka)
 #endif /* CM == CM_MODULAR */
 
 #ifdef IRREVOCABLE_ENABLED
