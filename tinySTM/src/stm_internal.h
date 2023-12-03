@@ -58,10 +58,6 @@
 # define CM                             CM_SUICIDE
 #endif /* ! CM */
 
-<<<<<<< HEAD
-=======
-
->>>>>>> b2f0181 (polka added)
 #if DESIGN != WRITE_BACK_ETL && CM == CM_MODULAR
 # error "MODULAR contention manager can only be used with WB-ETL design"
 #endif /* DESIGN != WRITE_BACK_ETL && CM == CM_MODULAR */
@@ -106,12 +102,9 @@
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_MODULAR
-<<<<<<< HEAD
-=======
 # ifndef MAX_BACKOFF
 #  define MAX_BACKOFF                   (1UL << 31)
 # endif /* MAX_BACKOFF*/
->>>>>>> b2f0181 (polka added)
 # define VR_THRESHOLD                   "VR_THRESHOLD"
 # ifndef VR_THRESHOLD_DEFAULT
 #  define VR_THRESHOLD_DEFAULT          3                   /* -1 means no visible reads. 0 means always use visible reads. */
@@ -291,11 +284,7 @@ typedef struct w_entry {                /* Write set entry */
       stm_word_t mask;                  /* Write mask */
       stm_word_t version;               /* Version overwritten */
       volatile stm_word_t *lock;        /* Pointer to lock (for fast access) */
-<<<<<<< HEAD
-#if CM == CM_MODULAR || defined(CONFLICT_TRACKING)
-=======
 #if CM == CM_MODULAR || defined(CONFLICT_TRACKING) 
->>>>>>> b2f0181 (polka added)
       struct stm_tx *tx;                /* Transaction owning the write set */
 #endif /* CM == CM_MODULAR || defined(CONFLICT_TRACKING) */
       union {
@@ -348,11 +337,8 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_DELAY || CM == CM_MODULAR
   volatile stm_word_t *c_lock;          /* Pointer to contented lock (cause of abort) */
-<<<<<<< HEAD
-=======
   unsigned int polka_backoff;
   struct stm_tx *enemy_tx;
->>>>>>> b2f0181 (polka added)
 #endif /* CM == CM_DELAY || CM == CM_MODULAR */
 #if CM == CM_BACKOFF
   unsigned long backoff;                /* Maximum backoff duration */
@@ -414,10 +400,7 @@ typedef struct {
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_MODULAR
   int (*contention_manager)(stm_tx_t *, stm_tx_t *, int);
-<<<<<<< HEAD
-=======
   const char *cm_policy;
->>>>>>> b2f0181 (polka added)
 #endif /* CM == CM_MODULAR */
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
@@ -425,11 +408,7 @@ typedef struct {
 
 extern global_t _tinystm;
 
-<<<<<<< HEAD
-#if CM == CM_MODULAR
-=======
 #if CM == CM_MODULAR 
->>>>>>> b2f0181 (polka added)
 # define KILL_SELF                      0x00
 # define KILL_OTHER                     0x01
 # define DELAY_RESTART                  0x04
@@ -936,11 +915,8 @@ int_stm_prepare(stm_tx_t *tx)
     goto start;
   }
 #if CM == CM_MODULAR
-<<<<<<< HEAD
-=======
   //if (tx->c_lock == NULL)//add by moran(polka)
     //tx->polka_backoff = 0;//add by Moran(polka)
->>>>>>> b2f0181 (polka added)
   if (tx->stat_retries == 0)
     tx->timestamp = tx->start;
 #endif /* CM == CM_MODULAR */
@@ -976,11 +952,8 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 #if CM == CM_MODULAR
   stm_word_t t;
-<<<<<<< HEAD
-=======
   const char *my_policy;
   volatile int j;
->>>>>>> b2f0181 (polka added)
 #endif /* CM == CM_MODULAR */
 
   PRINT_DEBUG("==> stm_rollback(%p[%lu-%lu])\n", tx, (unsigned long)tx->start, (unsigned long)tx->end);
@@ -1072,8 +1045,6 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_DELAY || CM == CM_MODULAR
-<<<<<<< HEAD
-=======
   stm_get_parameter("cm_policy", &my_policy); 
   if (strcmp(my_policy, "polka") == 0){
     /* cm policy is polka */
@@ -1088,7 +1059,6 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
       }
     } 
   }
->>>>>>> b2f0181 (polka added)
   /* Wait until contented lock is free */
   if (tx->c_lock != NULL) {
     /* Busy waiting (yielding is expensive) */
@@ -1099,21 +1069,15 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
     }
     tx->c_lock = NULL;
   }
-<<<<<<< HEAD
-=======
   else{
     //printf("tx->lock is NULL\n");
   }
->>>>>>> b2f0181 (polka added)
 #endif /* CM == CM_DELAY || CM == CM_MODULAR */
 
   /* Don't prepare a new transaction if no retry. */
   if (tx->attr.no_retry || (reason & STM_ABORT_NO_RETRY) == STM_ABORT_NO_RETRY) {
     tx->nesting = 0;
-<<<<<<< HEAD
-=======
     printf("no retry");
->>>>>>> b2f0181 (polka added)
     return;
   }
 
@@ -1476,11 +1440,8 @@ int_stm_commit(stm_tx_t *tx)
 
 #if CM == CM_MODULAR
   tx->visible_reads = 0;
-<<<<<<< HEAD
-=======
   tx->polka_backoff = 0;//add by moran(polka)
   tx->enemy_tx = NULL;//add by moran(polka)
->>>>>>> b2f0181 (polka added)
 #endif /* CM == CM_MODULAR */
 
 #ifdef IRREVOCABLE_ENABLED

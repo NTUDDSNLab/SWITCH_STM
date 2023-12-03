@@ -169,7 +169,6 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
 #if CM == CM_MODULAR
   stm_word_t t;
   int decision;
-  const char *my_policy;
 #endif /* CM == CM_MODULAR */
 
   PRINT_DEBUG2("==> stm_wbetl_read_invisible(t=%p[%lu-%lu],a=%p)\n", tx, (unsigned long)tx->start, (unsigned long)tx->end, addr);
@@ -205,7 +204,6 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
           value = ATOMIC_LOAD(addr);
 # if CM == CM_MODULAR
           if (GET_STATUS(tx->status) == TX_KILLED) {
-            //tx->c_lock = lock;// add by moran(polka)
             stm_rollback(tx, STM_ABORT_KILLED);
             return 0;
           }
@@ -280,20 +278,13 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
       /* We can safely steal lock */
       decision = KILL_OTHER;
     } else {
-      stm_get_parameter("cm_policy", &my_policy); 
       decision =
 #  ifdef IRREVOCABLE_ENABLED
         GET_STATUS(tx->status) == TX_IRREVOCABLE ? KILL_OTHER :
         GET_STATUS(t) == TX_IRREVOCABLE ? KILL_SELF :
 #  endif /* IRREVOCABLE_ENABLED */
         GET_STATUS(tx->status) == TX_KILLED ? KILL_SELF :
-        (_tinystm.contention_manager != NULL ? _tinystm.contention_manager(tx, w->tx, WW_CONFLICT) : KILL_SELF);
-        /*
-        if (strcmp(my_policy, "polka") == 0){
-          if (decision == KILL_SELF)
-            decision = KILL_SELF | DELAY_RESTART;
-        }
-        */
+        (_tinystm.contention_manager != NULL ? _tinystm.contention_manager(tx, w->tx, WR_CONFLICT) : KILL_SELF);
       if (decision == KILL_OTHER) {
         /* Kill other */
         if (!stm_kill(tx, w->tx, t)) {
@@ -311,10 +302,8 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
       goto restart_no_load;
     }
     /* Kill self */
-    if ((decision & DELAY_RESTART) != 0){
-      printf("invisible assign tx->lock\n");
+    if ((decision & DELAY_RESTART) != 0)
       tx->c_lock = lock;
-    }  
 # elif CM == CM_DELAY
     tx->c_lock = lock;
 # endif /* CM == CM_DELAY */
@@ -418,7 +407,6 @@ stm_wbetl_read_visible(stm_tx_t *tx, volatile stm_word_t *addr)
   stm_word_t l, l2, t, value, version;
   w_entry_t *w;
   int decision;
-  const char *my_policy;
 
   PRINT_DEBUG2("==> stm_wbetl_read_visible(t=%p[%lu-%lu],a=%p)\n", tx, (unsigned long)tx->start, (unsigned long)tx->end, addr);
 
@@ -429,6 +417,7 @@ stm_wbetl_read_visible(stm_tx_t *tx, volatile stm_word_t *addr)
 
   /* Get reference to lock */
   lock = GET_LOCK(addr);
+
   /* Try to acquire lock */
  restart:
   l = ATOMIC_LOAD_ACQ(lock);
@@ -491,20 +480,13 @@ stm_wbetl_read_visible(stm_tx_t *tx, volatile stm_word_t *addr)
       /* We can safely steal lock */
       decision = KILL_OTHER;
     } else {
-      stm_get_parameter("cm_policy", &my_policy); 
       decision =
 # ifdef IRREVOCABLE_ENABLED
         GET_STATUS(tx->status) == TX_IRREVOCABLE ? KILL_OTHER :
         GET_STATUS(t) == TX_IRREVOCABLE ? KILL_SELF :
 # endif /* IRREVOCABLE_ENABLED */
         GET_STATUS(tx->status) == TX_KILLED ? KILL_SELF :
-        (_tinystm.contention_manager != NULL ? _tinystm.contention_manager(tx, w->tx, WW_CONFLICT) : KILL_SELF);
-        /*
-        if (strcmp(my_policy, "polka") == 0){
-          if (decision == KILL_SELF)
-            decision = KILL_SELF | DELAY_RESTART;
-        }
-        */
+        (_tinystm.contention_manager != NULL ? _tinystm.contention_manager(tx, w->tx, (LOCK_GET_WRITE(l) ? WR_CONFLICT : RR_CONFLICT)) : KILL_SELF);
       if (decision == KILL_OTHER) {
         /* Kill other */
         if (!stm_kill(tx, w->tx, t)) {
@@ -518,10 +500,8 @@ stm_wbetl_read_visible(stm_tx_t *tx, volatile stm_word_t *addr)
       goto acquire;
     }
     /* Kill self */
-    if ((decision & DELAY_RESTART) != 0){
-      printf("visible assign tx->lock\n");
+    if ((decision & DELAY_RESTART) != 0)
       tx->c_lock = lock;
-    }
     /* Abort */
 # ifdef CONFLICT_TRACKING
     if (_tinystm.conflict_cb != NULL) {
@@ -582,7 +562,6 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
   w_entry_t *prev = NULL;
 #if CM == CM_MODULAR
   int decision;
-  const char *my_policy;
   stm_word_t l2, t;
 #endif /* CM == CM_MODULAR */
 
@@ -683,7 +662,6 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
       /* We can safely steal lock */
       decision = KILL_OTHER;
     } else {
-      stm_get_parameter("cm_policy", &my_policy); 
       decision =
 # ifdef IRREVOCABLE_ENABLED
         GET_STATUS(tx->status) == TX_IRREVOCABLE ? KILL_OTHER :
@@ -691,12 +669,9 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
 # endif /* IRREVOCABLE_ENABLED */
         GET_STATUS(tx->status) == TX_KILLED ? KILL_SELF :
         (_tinystm.contention_manager != NULL ? _tinystm.contention_manager(tx, w->tx, WW_CONFLICT) : KILL_SELF);
-        /*
-            decision = KILL_SELF | DELAY_RESTART;
-        }
-        */
       if (decision == KILL_OTHER) {
         /* Kill other */
+        if (!stm_kill(tx, w->tx, t)) {
           /* Transaction may have committed or aborted: retry */
           goto restart;
         }
@@ -708,10 +683,8 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
       goto acquire;
     }
     /* Kill self */
-    if ((decision & DELAY_RESTART) != 0){
-      printf("write assign tx->lock\n");
+    if ((decision & DELAY_RESTART) != 0)
       tx->c_lock = lock;
-    }
 #elif CM == CM_DELAY
     tx->c_lock = lock;
 #endif /* CM == CM_DELAY */

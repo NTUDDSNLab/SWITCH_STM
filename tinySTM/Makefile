@@ -75,25 +75,18 @@ DEFINES += -DDESIGN=WRITE_BACK_ETL
 ########################################################################
 
 # Pick one contention manager (CM)
-<<<<<<< HEAD
-DEFINES += -DCM=CM_SUICIDE
-# DEFINES += -DCM=CM_DELAY
-# DEFINES += -DCM=CM_BACKOFF
-# DEFINES += -DCM=CM_MODULAR
-=======
 # DEFINES += -DCM=CM_SUICIDE
 # DEFINES += -DCM=CM_DELAY
 # DEFINES += -DCM=CM_BACKOFF
 DEFINES += -DCM=CM_MODULAR
->>>>>>> b2f0181 (polka added)
 
 ########################################################################
 # Enable irrevocable mode (required for using the library with a
 # compiler).
 ########################################################################
 
-DEFINES += -DIRREVOCABLE_ENABLED
-# DEFINES += -UIRREVOCABLE_ENABLED
+# DEFINES += -DIRREVOCABLE_ENABLED
+DEFINES += -UIRREVOCABLE_ENABLED
 
 ########################################################################
 # Maintain detailed internal statistics.  Statistics are stored in
@@ -141,13 +134,8 @@ DEFINES += -UUSE_BLOOM_FILTER
 # enabling this feature.
 ########################################################################
 
-<<<<<<< HEAD
-# DEFINES += -DEPOCH_GC
-DEFINES += -UEPOCH_GC
-=======
 DEFINES += -DEPOCH_GC
 # DEFINES += -UEPOCH_GC
->>>>>>> b2f0181 (polka added)
 
 ########################################################################
 # Keep track of conflicts between transactions and notifies the
@@ -256,11 +244,7 @@ DEFINES += -UUNIT_TX
 # DEFINES += -DLOCK_SHIFT_EXTRA=2
 # DEFINES += -DMIN_BACKOFF=0x04UL
 # DEFINES += -DMAX_BACKOFF=0x80000000UL
-<<<<<<< HEAD
 # DEFINES += -DVR_THRESHOLD_DEFAULT=3
-=======
-# DEFINES += -DVR_THRESHOLD_DEFAULT=0
->>>>>>> b2f0181 (polka added)
 
 ########################################################################
 # Do not modify anything below this point!
@@ -277,11 +261,7 @@ D := $(D:CM_SUICIDE=0)
 D := $(D:CM_DELAY=1)
 D := $(D:CM_BACKOFF=2)
 D := $(D:CM_MODULAR=3)
-<<<<<<< HEAD
-D += -DCM_SUICIDE=0 -DCM_DELAY=1 -DCM_BACKOFF=2 -DCM_MODULAR=3
-=======
 D += -DCM_SUICIDE=0 -DCM_DELAY=1 -DCM_BACKOFF=2 -DCM_MODULAR=3 
->>>>>>> b2f0181 (polka added)
 
 ifneq (,$(findstring -DEPOCH_GC,$(DEFINES)))
   GC := $(SRCDIR)/gc.o
