@@ -173,10 +173,45 @@ cm_karma(struct stm_tx *me, struct stm_tx *other, int conflict)
   me_work = (me->w_set.nb_entries << 1) + me->r_set.nb_entries;
   other_work = (other->w_set.nb_entries << 1) + other->r_set.nb_entries;
 
-  if (me_work < other_work)
+  if (me_work > other_work)
     return KILL_OTHER;
   if (me_work == other_work && (uintptr_t)me < (uintptr_t)other)
     return KILL_OTHER;
+  return KILL_SELF;
+}
+
+/*
+ * Transaction with more work done has priority.
+ * delay the killed transaction for a period of exponention of difference of priority
+ */
+
+static int
+cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
+{
+  unsigned int me_work, other_work;
+
+  me_work = (me->w_set.nb_entries << 1) + me->r_set.nb_entries;
+  other_work = (other->w_set.nb_entries << 1) + other->r_set.nb_entries;
+
+  if (me_work > other_work){
+    if (other->enemy_tx != me){
+      other->enemy_tx = me;
+      other->polka_backoff = (me_work - other_work)<<10;
+    } 
+    return KILL_OTHER;
+  }
+  /*
+  if (me_work == other_work && (uintptr_t)me < (uintptr_t)other){
+    if (other->enemy_tx != me){
+      other->enemy_tx = me;
+      other->polka_backoff = (me_work - other_work);
+    }
+    return KILL_OTHER;
+  }*/
+  if (me->enemy_tx != other){
+    me->enemy_tx = other;
+    me->polka_backoff = (other_work - me_work)<<10;
+  } 
   return KILL_SELF;
 }
 
@@ -189,6 +224,10 @@ struct {
   { "delay", cm_delay },
   { "timestamp", cm_timestamp },
   { "karma", cm_karma },
+<<<<<<< HEAD
+=======
+  { "polka", cm_polka },
+>>>>>>> b2f0181 (polka added)
   { NULL, NULL }
 };
 #endif /* CM == CM_MODULAR */
@@ -580,6 +619,10 @@ stm_get_parameter(const char *name, void *val)
     *(int *)val = _tinystm.vr_threshold;
     return 1;
   }
+  if (strcmp("cm_policy", name) == 0){
+    *(const char **)val = _tinystm.cm_policy;
+    return 1;
+  }
 #endif /* CM == CM_MODULAR */
 #ifdef COMPILE_FLAGS
   if (strcmp("compile_flags", name) == 0) {
@@ -598,11 +641,11 @@ stm_set_parameter(const char *name, void *val)
 {
 #if CM == CM_MODULAR
   int i;
-
   if (strcmp("cm_policy", name) == 0) {
     for (i = 0; cms[i].name != NULL; i++) {
       if (strcasecmp(cms[i].name, (const char *)val) == 0) {
         _tinystm.contention_manager = cms[i].f;
+        _tinystm.cm_policy = cms[i].name;
         return 1;
       }
     }
