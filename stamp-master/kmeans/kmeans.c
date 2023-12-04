@@ -361,6 +361,7 @@ MAIN(argc, argv)
 #ifdef OUTPUT_TO_STDOUT
     {
         /* Output: the coordinates of the cluster centres */
+        /*
         for (i = 0; i < best_nclusters; i++) {
             printf("%d ", i);
             for (j = 0; j < numAttributes; j++) {
@@ -368,6 +369,7 @@ MAIN(argc, argv)
             }
             printf("\n");
         }
+        */
     }
 #endif /* OUTPUT TO_STDOUT */
 

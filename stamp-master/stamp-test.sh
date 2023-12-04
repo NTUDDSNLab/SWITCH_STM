@@ -12,6 +12,7 @@ else
     exit
 fi
 
+### Uncomment the following code for recompile STAMP test data. ###
 for dir in \
     bayes \
     genome \
@@ -29,6 +30,7 @@ make -f Makefile.${suffix}
 cd ..
 
 done
+###################################################################
 
 while [ $# -gt 0 ]
 do

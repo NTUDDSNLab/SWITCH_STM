@@ -124,8 +124,8 @@ DEFINES += -UWAIT_YIELD
 # design.
 ########################################################################
 
-# DEFINES += -DUSE_BLOOM_FILTER
-DEFINES += -UUSE_BLOOM_FILTER
+DEFINES += -DUSE_BLOOM_FILTER
+# DEFINES += -UUSE_BLOOM_FILTER
 
 ########################################################################
 # Use an epoch-based memory allocator and garbage collector to ensure
