@@ -34,6 +34,12 @@
 #include "atomic.h"
 #include "gc.h"
 
+#ifdef SHRINK_ENABLE
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#endif /* SHRINK_ENABLE */
+
 /* ################################################################### *
  * DEFINES
  * ################################################################### */
@@ -57,6 +63,10 @@
 #ifndef CM
 # define CM                             CM_SUICIDE
 #endif /* ! CM */
+
+#if DESIGN != WRITE_BACK_ETL && defined(SHRINK_ENABLE)
+# error "SHRINK can only be used with WB-ETL design" 
+#endif /* DESIGN != WRITE_BACK_ETL && defined(SHRINK_ENABLE) */
 
 #if DESIGN != WRITE_BACK_ETL && CM == CM_MODULAR
 # error "MODULAR contention manager can only be used with WB-ETL design"
@@ -125,6 +135,12 @@
 # define LONGJMP(ctx, value)            siglongjmp(ctx, value)
 #endif /* !CTX_LONGJMP && !CTX_ITM */
 
+#ifdef SHRINK_ENABLE
+# define locality_window                3
+# define success                        0.5
+# define succ_threshold                 0.5
+# define confidence_threshold           3
+#endif /* SHRINK_ENABLE */
 
 /* ################################################################### *
  * TYPES
@@ -220,7 +236,7 @@ enum {                                  /* Transaction status */
  */
 #ifdef USE_BLOOM_FILTER
 # define FILTER_HASH(a)                 (((stm_word_t)a >> 2) ^ ((stm_word_t)a >> 5))
-# define FILTER_BITS(a)                 (1 << (FILTER_HASH(a) & 0x1F))
+# define FILTER_BITS(a)                 ((stm_word_t)1 << (FILTER_HASH(a) & 0x1F))
 #endif /* USE_BLOOM_FILTER */
 
 /*
@@ -275,6 +291,20 @@ typedef struct r_set {                  /* Read set */
   unsigned int nb_entries;              /* Number of entries */
   unsigned int size;                    /* Size of array */
 } r_set_t;
+
+#ifdef SHRINK_ENABLE
+
+typedef struct pred_entry {
+  volatile stm_word_t *lock;            /* Pointer to lock (for fast access) */
+} pred_entry_t;
+
+typedef struct pred_set {               /* pred set */
+  pred_entry_t * entries;               /* Array of entries */
+  unsigned int nb_entries;              /* Number if entries */
+  unsigned int size;                    /* Size of array */
+} pred_set_t;
+
+#endif /* SHRINK_EABLE */
 
 typedef struct w_entry {                /* Write set entry */
   union {                               /* For padding... */
@@ -364,6 +394,13 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   unsigned int stat_locked_reads_failed;/* Failed reads of previous value */
 # endif /* READ_LOCKED_DATA */
 #endif /* TM_STATISTICS2 */
+#ifdef SHRINK_ENABLE
+  float succ_rate;                      /* successful rate */ 
+  stm_word_t bloom[locality_window+1];  /* for bloom filter */    
+  pred_set_t pred_r_set;                   /* predicted Read set */
+  pred_set_t pred_w_set;                   /* predicted Write set */
+  volatile stm_word_t last_status;      /* Transaction last_status */ 
+#endif /* SHRINK_ENABLE */
 } stm_tx_t;
 
 /* This structure should be ordered by hot and cold variables */
@@ -404,6 +441,11 @@ typedef struct {
 #endif /* CM == CM_MODULAR */
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
+#ifdef SHRINK_ENABLE
+  pthread_mutex_t shrink_mutex;
+  volatile unsigned int wait_count;     /* wait count*/
+  pthread_t owned_thread_id;            /* id of thread which own the shrink mutex */
+#endif /* SHRINK_ENABLE */  
 } ALIGNED global_t;
 
 extern global_t _tinystm;
@@ -462,6 +504,34 @@ stm_quiesce_init(void)
   _tinystm.threads_nb = 0;
   _tinystm.threads = NULL;
 }
+
+#ifdef SHRINK_ENABLE
+/*
+ * Initialize shrink mutex support
+ */
+static INLINE void
+stm_shrink_mutex_init(void){
+
+  PRINT_DEBUG("==> stm_shrink_mutex_init()\n");
+
+  if (pthread_mutex_init(&_tinystm.shrink_mutex, NULL) != 0) {
+    fprintf(stderr, "Error creating shrink mutex\n");
+    exit(1);
+  }
+}
+
+/*
+ * Clean up shrink mutex support.
+ */
+static INLINE void
+stm_shrink_mutex_exit(void)
+{
+  PRINT_DEBUG("==> stm_shrink_mutex_exit()\n");
+
+  pthread_mutex_destroy(&_tinystm.shrink_mutex);
+}
+
+#endif /* SHRINK_ENABLE */
 
 /*
  * Clean up quiescence support.
@@ -789,6 +859,43 @@ stm_allocate_ws_entries(stm_tx_t *tx, int extend)
 #endif /* CM == CM_MODULAR || defined(CONFLICT_TRACKING) */
 }
 
+#ifdef SHRINK_ENABLE
+/*
+ * (Re)allocate pred read set entries.
+ */
+static NOINLINE void
+stm_allocate_pred_rs_entries(stm_tx_t *tx, int extend)
+{
+  PRINT_DEBUG("==> stm_allocate_pred_rs_entries(%p[%lu-%lu],%d)\n", tx, (unsigned long)tx->start, (unsigned long)tx->end, extend);
+
+  if (extend) {
+    /* Extend pred read set */
+    tx->pred_r_set.size *= 2;
+    tx->pred_r_set.entries = (pred_entry_t *)xrealloc(tx->pred_r_set.entries, tx->pred_r_set.size * sizeof(pred_entry_t));
+  } else {
+    /* Allocate pred read set */
+    tx->pred_r_set.entries = (pred_entry_t *)xmalloc_aligned(tx->pred_r_set.size * sizeof(pred_entry_t));
+  }
+}
+
+/*
+ * (Re)allocate pred write set entries.
+ */
+static NOINLINE void
+stm_allocate_pred_ws_entries(stm_tx_t *tx, int extend)
+{
+  PRINT_DEBUG("==> stm_allocate_pred_ws_entries(%p[%lu-%lu],%d)\n", tx, (unsigned long)tx->start, (unsigned long)tx->end, extend);
+
+  if (extend) {
+    /* Extend pred write set */
+    tx->pred_w_set.size *= 2;
+    tx->pred_w_set.entries = (pred_entry_t *)xrealloc(tx->pred_w_set.entries, tx->pred_w_set.size * sizeof(pred_entry_t));
+  } else {
+    /* Allocate read set */
+    tx->pred_w_set.entries = (pred_entry_t *)xmalloc_aligned(tx->pred_w_set.size * sizeof(pred_entry_t));
+  }
+}
+#endif /* SHRINK_ENABLE */
 
 #if DESIGN == WRITE_BACK_ETL
 # include "stm_wbetl.h"
@@ -938,6 +1045,58 @@ int_stm_prepare(stm_tx_t *tx)
 #endif /* ! IRREVOCABLE_ENABLED */
 
   stm_check_quiesce(tx);
+
+#ifdef SHRINK_ENABLE
+if (tx->succ_rate < succ_threshold){
+  /* generate random number rnd */
+  unsigned int rnd = rand() % 32;
+  /* if rnd <= wait_count means high serialization affinity */
+  //if(1){
+  if(rnd <= _tinystm.wait_count){
+    //printf("wait_count is:%lu\n",_tinystm.wait_count);
+    if (tx->pred_r_set.nb_entries != 0){
+      //printf("pred_r_set entries: %d\n", tx->pred_r_set.nb_entries);
+      pred_entry_t *r_pred = tx->pred_r_set.entries;
+      for (int i = tx->pred_r_set.nb_entries; i > 0; i--, r_pred++){
+        /* if some other thread is writing read_pred then */
+        if (LOCK_GET_WRITE(ATOMIC_LOAD(r_pred->lock))) {
+          /* atomically increment wait_count */
+          ATOMIC_STORE_REL(&_tinystm.wait_count, ATOMIC_LOAD(&_tinystm.wait_count) + 1);
+          /* lock shrink_mutex */
+          pthread_mutex_lock(&_tinystm.shrink_mutex);
+          _tinystm.owned_thread_id = pthread_self();
+          break;
+        }
+      }
+    }
+    /* if not owner of shrink lock then */
+    if(_tinystm.owned_thread_id != pthread_self()){
+      /* not owner of lock */
+      if (tx->pred_w_set.nb_entries != 0){
+        pred_entry_t *w_pred = tx->pred_w_set.entries;
+        for (int i = tx->pred_w_set.nb_entries; i > 0; i--, w_pred++){
+          /* if some other thread is writing write_pred then */
+          if (LOCK_GET_WRITE(ATOMIC_LOAD(w_pred->lock))){
+            /* atomically increment wait_count */
+            ATOMIC_STORE_REL(&_tinystm.wait_count, ATOMIC_LOAD(&_tinystm.wait_count) + 1);
+            /* lock shrink_mutex */
+            pthread_mutex_lock(&_tinystm.shrink_mutex);
+            _tinystm.owned_thread_id = pthread_self();
+            break;
+          } 
+        }
+      } 
+    }
+  }
+  /* reset pred_r_set and pred_w_set */
+  if(tx->last_status == TX_COMMITTED){
+    /* remove all address from pred_r_set*/
+    tx->pred_r_set.nb_entries = 0;
+  } 
+  /* remove all address from pred_w_set*/
+  tx->pred_w_set.nb_entries = 0;
+} 
+#endif /* SHRINK_ENABLE */ 
 }
 
 /*
@@ -964,6 +1123,40 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   /* Irrevocable cannot abort */
   assert((tx->irrevocable & 0x07) != 3);
 #endif /* IRREVOCABLE_ENABLED */
+
+#ifdef SHRINK_ENABLE
+  /* copy write set to predicted write set*/
+  //printf("copy write set\n");
+   
+  tx->pred_w_set.nb_entries = tx->w_set.nb_entries;
+  tx->pred_w_set.size = tx->w_set.size;
+  tx->pred_w_set.entries = (pred_entry_t *)xrealloc(tx->pred_w_set.entries, tx->pred_w_set.size * sizeof(pred_entry_t));
+  if (tx->w_set.entries != NULL) {
+    // copy entries
+    pred_entry_t *w_pred = tx->pred_w_set.entries;
+    w_entry_t *w = tx->w_set.entries;
+    for (int i = 0; i < tx->w_set.nb_entries; i++, w_pred++, w++) {
+      w_pred->lock = w->lock;
+    }
+  }
+   /* devide successful rate by 2 */
+  tx->succ_rate /= 2;
+  /* release the shrink mutex if we have lock */
+  if(_tinystm.owned_thread_id == pthread_self()){
+    /* we have lock */
+    _tinystm.owned_thread_id = NULL;
+    pthread_mutex_unlock(&_tinystm.shrink_mutex);
+    //printf("here UNLOCK the mutex\n");
+    /* atomically decrease wait_count */
+    ATOMIC_STORE_REL(&_tinystm.wait_count, ATOMIC_LOAD(&_tinystm.wait_count) - 1);
+  }
+  /* shift bloom filter */
+  for(int i = locality_window; i>0 ; i--){
+    tx->bloom[i] = tx->bloom[i-1];
+  }
+  /* set last status to TX_ABORTED */
+  SET_STATUS(tx->last_status, TX_ABORTED);
+#endif /* SHRINK_ENABLE */
 
 #if CM == CM_MODULAR
   /* Set status to ABORTING */
@@ -1241,6 +1434,16 @@ int_stm_init_thread(void)
   tx->w_set.bloom = 0;
 #endif /* USE_BLOOM_FILTER */
   stm_allocate_ws_entries(tx, 0);
+#ifdef SHRINK_ENABLE
+  /*pred Read set */
+  tx->pred_r_set.nb_entries = 0;
+  tx->pred_r_set.size = RW_SET_SIZE;
+  stm_allocate_pred_rs_entries(tx, 0);
+  /* pred Write set */
+  tx->pred_w_set.nb_entries = 0;
+  tx->pred_w_set.size = RW_SET_SIZE;
+  stm_allocate_pred_ws_entries(tx, 0);
+#endif /* SHRINK_ENABLE*/
   /* Nesting level */
   tx->nesting = 0;
   /* Transaction-specific data */
@@ -1283,6 +1486,14 @@ int_stm_init_thread(void)
 #ifdef IRREVOCABLE_ENABLED
   tx->irrevocable = 0;
 #endif /* IRREVOCABLE_ENABLED */
+#ifdef SHRINK_ENABLE
+  tx->succ_rate = 1;
+  SET_STATUS(tx->last_status, TX_COMMITTED);
+  for(int i = 0;i <= locality_window;i++){
+    tx->bloom[i] = 0;
+  }
+#endif /* SHRINK_ENABLE */
+
   /* Store as thread-local data */
   tls_set_tx(tx);
   stm_quiesce_enter_thread(tx);
@@ -1453,6 +1664,28 @@ int_stm_commit(stm_tx_t *tx)
   }
 #endif /* IRREVOCABLE_ENABLED */
 
+#ifdef SHRINK_ENABLE
+  /* increase successful rate */
+  tx->succ_rate = (tx->succ_rate + success)/2; 
+  /* release the shrink mutex */
+  if(_tinystm.owned_thread_id == pthread_self()){
+    /* we have lock */
+    _tinystm.owned_thread_id = NULL;
+    pthread_mutex_unlock(&_tinystm.shrink_mutex);
+    //printf("here UNLOCK the mutex\n");
+    /* atomically decrease wait_count */
+    ATOMIC_STORE_REL(&_tinystm.wait_count, ATOMIC_LOAD(&_tinystm.wait_count) - 1);
+  }
+  /* shift bloom filter */
+  for(int i = locality_window; i>0 ; i--){
+    tx->bloom[i] = tx->bloom[i-1];
+  }
+  /* reset tx->bloom[0] */
+  tx->bloom[0] = 0;
+  /* set last status to TX_COMMITTED*/
+  SET_STATUS(tx->last_status, TX_COMMITTED);
+#endif /* SHRINK_ENABLE*/
+
   /* Set status to COMMITTED */
   SET_STATUS(tx->status, TX_COMMITTED);
 
@@ -1469,6 +1702,30 @@ int_stm_commit(stm_tx_t *tx)
 static INLINE stm_word_t
 int_stm_load(stm_tx_t *tx, volatile stm_word_t *addr)
 {
+#ifdef SHRINK_ENABLE
+/* add addr into bloom filter set*/
+stm_word_t mask = FILTER_BITS(addr);
+if ((tx->bloom[0] & mask)!= mask){
+  /* addr is not in bloom filter set , add into it */
+  tx->bloom[0] |= mask;
+  
+  /* caculate the confidence*/
+  unsigned int confidence = 0;
+  for (int i = 1;i <= locality_window; i++){
+    if ((tx->bloom[i] & mask) == mask)
+      confidence += (locality_window+1-i);
+  }
+
+  /* if confidence >= confidence_threshold */
+  if (confidence >= confidence_threshold){
+    /* add addr into pred_read_set */
+    if (tx->pred_r_set.nb_entries == tx->pred_r_set.size)
+      stm_allocate_pred_rs_entries(tx, 1);
+    pred_entry_t *r_pred = &tx->pred_r_set.entries[tx->pred_r_set.nb_entries++];
+    r_pred->lock = GET_LOCK(addr);
+  }
+}
+#endif /* SHRINK_ENABLE*/
 #if DESIGN == WRITE_BACK_ETL
   return stm_wbetl_read(tx, addr);
 #elif DESIGN == WRITE_BACK_CTL
