@@ -64,6 +64,10 @@ global_t _tinystm =
 #ifdef IRREVOCABLE_ENABLED
     , .irrevocable = 0
 #endif /* IRREVOCABLE_ENABLED */
+#ifdef SHRINK_ENABLE
+    , .wait_count = 0
+    , .owned_thread_id = NULL
+#endif /* SHRINK_ENABLE */
     };
 
 /* ################################################################### *
@@ -306,7 +310,11 @@ stm_init(void)
   CLOCK = 0;
 
   stm_quiesce_init();
-
+#ifdef SHRINK_ENABLE
+  stm_shrink_mutex_init();
+  /* set random seed for random number */
+  srand(clock());
+ #endif /* SHRINK_ENABLE*/
   tls_init();
 
 #ifdef SIGNAL_HANDLER
@@ -336,6 +344,9 @@ stm_exit(void)
     return;
 
   tls_exit();
+#ifdef SHRINK_ENABLE
+  stm_shrink_mutex_exit();
+#endif /* SHRINK_ENABLE */ 
   stm_quiesce_exit();
 
 #ifdef EPOCH_GC

@@ -81,6 +81,13 @@ DEFINES += -DDESIGN=WRITE_BACK_ETL
 DEFINES += -DCM=CM_MODULAR
 
 ########################################################################
+#Enable shrink
+########################################################################
+
+# DEFINES += -DSHRINK_ENABLE
+DEFINES += -USHRINK_ENABLE
+
+########################################################################
 # Enable irrevocable mode (required for using the library with a
 # compiler).
 ########################################################################
