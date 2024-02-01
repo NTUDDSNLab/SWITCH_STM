@@ -188,36 +188,45 @@ cm_karma(struct stm_tx *me, struct stm_tx *other, int conflict)
  * Transaction with more work done has priority.
  * delay the killed transaction for a period of exponention of difference of priority
  */
-
+#ifdef CM_POLKA
 static int
 cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
 {
+  /* Abort too many times, kill any enemies encountered */
+  if (me->polka_abort_count >= CM_POLKA_MAX_ABORT_TIME){
+    return KILL_OTHER; 
+  }
+
+  /* same enemy encountered, increase waiting time */
+  if (me->enemy_tx == other){
+    me->polka_backoff = (me->polka_backoff)<<2;
+    return KILL_SELF;
+  }
+
+  /* enemy was killed by me, kill enemy again */
+  if (other->enemy_tx == me){
+    other->polka_backoff = (me->polka_backoff)<<2;
+    return KILL_OTHER;
+  }
+
   unsigned int me_work, other_work;
 
   me_work = (me->w_set.nb_entries << 1) + me->r_set.nb_entries;
   other_work = (other->w_set.nb_entries << 1) + other->r_set.nb_entries;
 
+  /* me work more than enemy, kill other and set the polka_backoff */
   if (me_work > other_work){
-    if (other->enemy_tx != me){
       other->enemy_tx = me;
-      other->polka_backoff = (me_work - other_work)<<10;
-    } 
+      other->polka_backoff = (me_work - other_work)<<5;
     return KILL_OTHER;
   }
-  /*
-  if (me_work == other_work && (uintptr_t)me < (uintptr_t)other){
-    if (other->enemy_tx != me){
-      other->enemy_tx = me;
-      other->polka_backoff = (me_work - other_work);
-    }
-    return KILL_OTHER;
-  }*/
-  if (me->enemy_tx != other){
-    me->enemy_tx = other;
-    me->polka_backoff = (other_work - me_work)<<10;
-  } 
+
+  /* enemy has done more work than me , kill myself and set the polka_backoff */
+  me->enemy_tx = other;
+  me->polka_backoff = (other_work - me_work)<<5;
   return KILL_SELF;
 }
+#endif /* CM_POLKA */
 
 struct {
   const char *name;
@@ -228,7 +237,9 @@ struct {
   { "delay", cm_delay },
   { "timestamp", cm_timestamp },
   { "karma", cm_karma },
+#ifdef CM_POLKA
   { "polka", cm_polka },
+#endif /* CM_POLKA */
   { NULL, NULL }
 };
 #endif /* CM == CM_MODULAR */
@@ -330,6 +341,10 @@ stm_init(void)
   }
 #endif /* SIGNAL_HANDLER */
   _tinystm.initialized = 1;
+
+#ifdef CM_POLKA
+  stm_set_parameter("cm_policy", "polka");
+#endif /* CM_POLKA */
 }
 
 /*

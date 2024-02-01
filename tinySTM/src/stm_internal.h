@@ -64,6 +64,10 @@
 # define CM                             CM_SUICIDE
 #endif /* ! CM */
 
+#ifdef CM_POLKA
+#define CM_POLKA_MAX_ABORT_TIME         20
+#endif /* CM_POLKA */
+
 #if DESIGN != WRITE_BACK_ETL && defined(SHRINK_ENABLE)
 # error "SHRINK can only be used with WB-ETL design" 
 #endif /* DESIGN != WRITE_BACK_ETL && defined(SHRINK_ENABLE) */
@@ -367,8 +371,11 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_DELAY || CM == CM_MODULAR
   volatile stm_word_t *c_lock;          /* Pointer to contented lock (cause of abort) */
+  #ifdef CM_POLKA
   unsigned int polka_backoff;
+  unsigned int polka_abort_count;
   struct stm_tx *enemy_tx;
+  #endif /* CM_POLKA */
 #endif /* CM == CM_DELAY || CM == CM_MODULAR */
 #if CM == CM_BACKOFF
   unsigned long backoff;                /* Maximum backoff duration */
@@ -1022,8 +1029,6 @@ int_stm_prepare(stm_tx_t *tx)
     goto start;
   }
 #if CM == CM_MODULAR
-  //if (tx->c_lock == NULL)//add by moran(polka)
-    //tx->polka_backoff = 0;//add by Moran(polka)
   if (tx->stat_retries == 0)
     tx->timestamp = tx->start;
 #endif /* CM == CM_MODULAR */
@@ -1111,8 +1116,9 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 #if CM == CM_MODULAR
   stm_word_t t;
-  const char *my_policy;
+  #ifdef CM_POLKA
   volatile int j;
+  #endif /* CM_POLKA */
 #endif /* CM == CM_MODULAR */
 
   PRINT_DEBUG("==> stm_rollback(%p[%lu-%lu])\n", tx, (unsigned long)tx->start, (unsigned long)tx->end);
@@ -1238,20 +1244,14 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_DELAY || CM == CM_MODULAR
-  stm_get_parameter("cm_policy", &my_policy); 
-  if (strcmp(my_policy, "polka") == 0){
-    /* cm policy is polka */
-    if (tx->polka_backoff !=0){
-      //printf("here runs polka\n");
-      if (tx->polka_backoff <MAX_BACKOFF){
-        tx->polka_backoff <<= 1;
-      } 
-      //printf("tx->polka_backoff : %u\n", tx->polka_backoff);
-      for (j = 0; j < tx->polka_backoff; j++) {
-        // Do nothing 
-      }
-    } 
+
+  #ifdef CM_POLKA
+  tx->polka_backoff++;
+  for (j = 0; j < tx->polka_backoff; j++) {
+    // Do nothing 
   }
+  #endif /* CM_POLKA */
+
   /* Wait until contented lock is free */
   if (tx->c_lock != NULL) {
     /* Busy waiting (yielding is expensive) */
@@ -1493,7 +1493,11 @@ int_stm_init_thread(void)
     tx->bloom[i] = 0;
   }
 #endif /* SHRINK_ENABLE */
-
+#ifdef CM_POLKA
+  tx->polka_backoff = 0;
+  tx->polka_abort_count = 0;
+  tx->enemy_tx = NULL;
+#endif
   /* Store as thread-local data */
   tls_set_tx(tx);
   stm_quiesce_enter_thread(tx);
@@ -1651,8 +1655,13 @@ int_stm_commit(stm_tx_t *tx)
 
 #if CM == CM_MODULAR
   tx->visible_reads = 0;
-  tx->polka_backoff = 0;//add by moran(polka)
-  tx->enemy_tx = NULL;//add by moran(polka)
+
+  #ifdef CM_POLKA
+  tx->polka_backoff = 0;
+  tx->polka_abort_count = 0;
+  tx->enemy_tx = NULL;
+  #endif /* CM_POLKA */
+
 #endif /* CM == CM_MODULAR */
 
 #ifdef IRREVOCABLE_ENABLED

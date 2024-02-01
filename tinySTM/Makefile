@@ -81,6 +81,14 @@ DEFINES += -DDESIGN=WRITE_BACK_ETL
 DEFINES += -DCM=CM_MODULAR
 
 ########################################################################
+#Enable polka
+#Must come with CM_MODULAR
+########################################################################
+
+DEFINES += -DCM_POLKA
+# DEFINES += -UCM_POLKA
+
+########################################################################
 #Enable shrink
 ########################################################################
 
@@ -92,8 +100,8 @@ DEFINES += -USHRINK_ENABLE
 # compiler).
 ########################################################################
 
-# DEFINES += -DIRREVOCABLE_ENABLED
-DEFINES += -UIRREVOCABLE_ENABLED
+DEFINES += -DIRREVOCABLE_ENABLED
+# DEFINES += -UIRREVOCABLE_ENABLED
 
 ########################################################################
 # Maintain detailed internal statistics.  Statistics are stored in
