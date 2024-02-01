@@ -156,6 +156,19 @@ thread_start (void (*funcPtr)(void*), void* argPtr);
 
 
 /* =============================================================================
+ * thread_run
+ * -- Wrap the global function and argument
+ * -- To make it conform to the datatype of aco function
+ * -- It must be a parameterless function
+ * =============================================================================
+ */
+#ifdef SWITCH_STM
+void
+thread_run (void);
+#endif /* SWITCH_STM */
+
+
+/* =============================================================================
  * thread_shutdown
  * -- Primary thread kills pool of secondary threads
  * =============================================================================

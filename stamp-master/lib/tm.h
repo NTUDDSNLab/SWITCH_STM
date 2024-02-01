@@ -334,7 +334,7 @@
 #elif defined(STM)
 
 #  include <string.h>
-#  include <stm.h>
+#  include "stm.h"
 #  include "thread.h"
 
 #  if defined (OTM)
