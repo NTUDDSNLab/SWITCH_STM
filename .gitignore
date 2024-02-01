@@ -5,3 +5,9 @@
 # Generated documentation
 /doc/
 .vscode/*
+.DS_Store
+# input data of STAMP
+*.txt
+*.ele
+*.node
+*.poly
