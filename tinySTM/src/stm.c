@@ -38,6 +38,10 @@
 #include "atomic.h"
 #include "gc.h"
 
+#ifdef SWITCH_STM
+#include "switch_table.h"
+#endif /* SWITCH_STM*/
+
 /* ################################################################### *
  * DEFINES
  * ################################################################### */
@@ -117,8 +121,15 @@ global_t _tinystm =
 pthread_key_t thread_tx;
 pthread_key_t thread_gc;
 #elif defined(TLS_COMPILER)
+
+#ifdef SWITCH_STM
+__thread coroutine_array_t * cor_array = NULL;
+__thread coroutine_t * cur_cor = NULL;
+#else  /* !SWITCH_STM */
 __thread stm_tx_t* thread_tx = NULL;
+#endif /* !SWITCH_STM */
 __thread long thread_gc = 0;
+
 #endif /* defined(TLS_COMPILER) */
 
 /* ################################################################### *

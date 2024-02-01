@@ -59,6 +59,13 @@
 
 #include "utils.h"
 
+#ifdef SWITCH_STM
+#include "aco.h"
+#include "switch_table.h"
+#include "param.h"
+//#include "task.h"
+# endif /* SWITCH_STM */
+
 struct stm_tx;
 
 #if defined(TLS_GLIBC)
@@ -112,27 +119,41 @@ tls_set_gc(long gc)
 
 
 #elif defined(TLS_COMPILER)
+
+#ifdef SWITCH_STM
+extern __thread coroutine_array_t * cor_array;
+extern __thread coroutine_t * cur_cor;
+#else  /* !SWITCH_STM */
 extern __thread struct stm_tx * thread_tx;
+#endif /* !SWITCH_STM */
 extern __thread long thread_gc;
 
 static INLINE void
 tls_init(void)
 {
+#ifndef SWITCH_STM
   thread_tx = NULL;
+#endif /* !SWITCH_STM */
   thread_gc = 0;
 }
 
 static INLINE void
 tls_exit(void)
 {
+#ifndef SWITCH_STM
   thread_tx = NULL;
+#endif /* !SWITCH_STM*/
   thread_gc = 0;
 }
 
 static INLINE struct stm_tx *
 tls_get_tx(void)
 {
+#ifdef SWITCH_STM
+  return cur_cor->tx;
+#else  /* !SWITCH_STM */
   return thread_tx;
+#endif /* !SWITCH_STM */
 }
 
 static INLINE long
@@ -144,7 +165,11 @@ tls_get_gc(void)
 static INLINE void
 tls_set_tx(struct stm_tx *tx)
 {
+#ifdef SWITCH_STM
+  cur_cor->tx = tx;
+#else  /* !SWITCH_STM */
   thread_tx = tx;
+#endif /* ! SWITCH_STM */
 }
 
 static INLINE void

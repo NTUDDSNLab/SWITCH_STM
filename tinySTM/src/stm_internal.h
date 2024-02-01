@@ -40,6 +40,11 @@
 #include <time.h>
 #endif /* SHRINK_ENABLE */
 
+#ifdef SWITCH_STM
+#include "aco.h"
+#include "param.h"
+#endif /* SWITCH_STM */
+
 /* ################################################################### *
  * DEFINES
  * ################################################################### */
@@ -456,6 +461,11 @@ typedef struct {
 } ALIGNED global_t;
 
 extern global_t _tinystm;
+
+# ifdef SWITCH_STM
+extern __thread coroutine_array_t * cor_array;
+extern __thread coroutine_t * cur_cor;
+# endif /* SWITCH_STM */
 
 #if CM == CM_MODULAR 
 # define KILL_SELF                      0x00
@@ -1287,6 +1297,11 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #else /* ! IRREVOCABLE_ENABLED */
   reason |= STM_PATH_INSTRUMENTED;
 #endif /* ! IRREVOCABLE_ENABLED */
+
+#ifdef SWITCH_STM
+  aco_yield();
+#endif /* SWITCH_STM */
+
   LONGJMP(tx->env, reason);
 }
 
@@ -1497,7 +1512,7 @@ int_stm_init_thread(void)
   tx->polka_backoff = 0;
   tx->polka_abort_count = 0;
   tx->enemy_tx = NULL;
-#endif
+#endif /* CM_POLKA */
   /* Store as thread-local data */
   tls_set_tx(tx);
   stm_quiesce_enter_thread(tx);
@@ -1557,6 +1572,10 @@ int_stm_exit_thread(stm_tx_t *tx)
 #endif /* ! EPOCH_GC */
 
   tls_set_tx(NULL);
+
+#ifdef SWITCH_STM
+  aco_exit();
+#endif /* SWITCH_STM */
 }
 
 static INLINE sigjmp_buf *

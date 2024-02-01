@@ -1,0 +1,3 @@
+[submodule "tinySTM/libaco"]
+	path = tinySTM/libaco
+	url = https://github.com/hnes/libaco.git

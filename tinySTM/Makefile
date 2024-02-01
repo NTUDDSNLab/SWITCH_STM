@@ -81,6 +81,13 @@ DEFINES += -DDESIGN=WRITE_BACK_ETL
 DEFINES += -DCM=CM_MODULAR
 
 ########################################################################
+# SwitchSTM enable
+########################################################################
+
+DEFINES += -DSWITCH_STM
+# DEFINES += -USWITCH_STM
+
+########################################################################
 #Enable polka
 #Must come with CM_MODULAR
 ########################################################################
@@ -284,10 +291,10 @@ else
   GC :=
 endif
 
-CPPFLAGS += -I$(SRCDIR)
+CPPFLAGS += -I$(SRCDIR) -I$(CORDIR) -I$(STAMPDIR)
 CPPFLAGS += $(DEFINES)
 
-MODULES := $(patsubst %.c,%.o,$(wildcard $(SRCDIR)/mod_*.c))
+MODULES := $(patsubst %.c,%.o,$(wildcard $(SRCDIR)/mod_*.c)) $(SRCDIR)/switch_table.o
 
 .PHONY:	all doc test abi clean check
 
@@ -296,8 +303,15 @@ all:	$(TMLIB)
 %.o:	%.c Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DCOMPILE_FLAGS="$(CPPFLAGS) $(CFLAGS)" -c -o $@ $<
 
+# CM_COROUTINE
+aco.o: $(CORDIR)/aco.c $(CORDIR)/acosw.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCOMPILE_FLAGS="$(CPPFLAGS) $(CFLAGS)" -c -o $(CORDIR)/aco.o $(CORDIR)/aco.c
+
+acosw.o: $(CORDIR)/acosw.S
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DCOMPILE_FLAGS="$(CPPFLAGS) $(CFLAGS)" -c -o $(CORDIR)/acosw.o $(CORDIR)/acosw.S
+
 # Additional dependencies
-$(SRCDIR)/stm.o:	$(INCDIR)/stm.h
+$(SRCDIR)/stm.o:	$(INCDIR)/stm.h $(INCDIR)/switch_table.h
 $(SRCDIR)/stm.o:	$(SRCDIR)/stm_internal.h $(SRCDIR)/stm_wt.h $(SRCDIR)/stm_wbetl.h $(SRCDIR)/stm_wbctl.h $(SRCDIR)/tls.h $(SRCDIR)/utils.h $(SRCDIR)/atomic.h
 
 %.s:	%.c Makefile
@@ -306,7 +320,7 @@ $(SRCDIR)/stm.o:	$(SRCDIR)/stm_internal.h $(SRCDIR)/stm_wt.h $(SRCDIR)/stm_wbetl
 %.o.c:	%.c Makefile
 	$(UNIFDEF) $(D) $< > $@ || true
 
-$(TMLIB):	$(SRCDIR)/$(TM).o $(SRCDIR)/wrappers.o $(GC) $(MODULES)
+$(TMLIB):	$(SRCDIR)/$(TM).o $(SRCDIR)/wrappers.o $(GC) $(MODULES) $(CORDIR)/aco.o $(CORDIR)/acosw.o
 	$(AR) crus $@ $^
 
 test:	$(TMLIB)
