@@ -481,7 +481,9 @@ createTaskList (void* argPtr)
             TM_BEGIN();
             status = TMLIST_INSERT(taskListPtr, (void*)taskPtr);
             TM_END();
+            #ifndef SWITCH_STM
             assert(status);
+            #endif /* SWITCH_STM */
         }
 
     } /* for each variable */

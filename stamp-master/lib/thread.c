@@ -73,6 +73,11 @@
 #include <stdlib.h>
 #include "thread.h"
 #include "types.h"
+#ifdef SWITCH_STM
+#include "switch_table.h"
+#include "aco.h"
+#include "scheduler.h"
+#endif /* SWITCH_STM */
 
 static THREAD_LOCAL_T    global_threadId;
 static long              global_numThread       = 1;
@@ -84,6 +89,11 @@ static void            (*global_funcPtr)(void*) = NULL;
 static void*             global_argPtr          = NULL;
 static volatile bool_t   global_doShutdown      = FALSE;
 
+#ifdef SWITCH_STM
+//extern __thread switch_table_t * sw_table;
+extern __thread coroutine_array_t * cor_array;
+extern __thread coroutine_t * cur_cor;
+#endif /* SWITCH_STM */
 
 /* =============================================================================
  * threadWait
@@ -102,7 +112,12 @@ threadWait (void* argPtr)
         if (global_doShutdown) {
             break;
         }
+#ifdef SWITCH_STM
+        scheduler_init(&cor_array,&thread_run);
+        scheduler_run(&cor_array); 
+#else  /* !SWITCH_STM */        
         global_funcPtr(global_argPtr);
+#endif /* !SWITCH_STM */
         THREAD_BARRIER(global_barrierPtr, threadId); /* wait for end parallel */
         if (threadId == 0) {
             break;
@@ -176,6 +191,22 @@ thread_start (void (*funcPtr)(void*), void* argPtr)
     long threadId = 0; /* primary */
     threadWait((void*)&threadId);
 }
+
+
+/* =============================================================================
+ * thread_run
+ * -- Wrap the global function and argument
+ * -- To make it conform to the datatype of aco function
+ * -- It must be a parameterless function
+ * =============================================================================
+ */
+#ifdef SWITCH_STM
+void
+thread_run (void)
+{
+   global_funcPtr(global_argPtr); 
+}
+#endif /* SWITCH_STM */
 
 
 /* =============================================================================
