@@ -70,7 +70,7 @@ global_t _tinystm =
 #endif /* IRREVOCABLE_ENABLED */
 #ifdef SHRINK_ENABLE
     , .wait_count = 0
-    , .owned_thread_id = NULL
+    , .owned_thread_id = (pthread_t)NULL
 #endif /* SHRINK_ENABLE */
     };
 
@@ -210,13 +210,17 @@ cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
 
   /* same enemy encountered, increase waiting time */
   if (me->enemy_tx == other){
-    me->polka_backoff = (me->polka_backoff)<<2;
+    if(me->polka_backoff < MAX_BACKOFF){
+      me->polka_backoff = (me->polka_backoff)<<2;
+    }
     return KILL_SELF;
   }
 
   /* enemy was killed by me, kill enemy again */
   if (other->enemy_tx == me){
-    other->polka_backoff = (me->polka_backoff)<<2;
+    if(other->polka_backoff < MAX_BACKOFF){
+      other->polka_backoff = (other->polka_backoff)<<2;
+    }
     return KILL_OTHER;
   }
 

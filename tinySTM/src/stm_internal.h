@@ -243,10 +243,10 @@ enum {                                  /* Transaction status */
  * We use the very same hash functions as TL2 for degenerate Bloom
  * filters on 32 bits.
  */
-#ifdef USE_BLOOM_FILTER
+#if defined(USE_BLOOM_FILTER) || defined(SHRINK_ENABLE)
 # define FILTER_HASH(a)                 (((stm_word_t)a >> 2) ^ ((stm_word_t)a >> 5))
 # define FILTER_BITS(a)                 ((stm_word_t)1 << (FILTER_HASH(a) & 0x1F))
-#endif /* USE_BLOOM_FILTER */
+#endif /* USE_BLOOM_FILTER || SHRINK_ENABLE */
 
 /*
  * We use an array of locks and hash the address to find the location of the lock.
@@ -313,7 +313,7 @@ typedef struct pred_set {               /* pred set */
   unsigned int size;                    /* Size of array */
 } pred_set_t;
 
-#endif /* SHRINK_EABLE */
+#endif /* SHRINK_ENABLE */
 
 typedef struct w_entry {                /* Write set entry */
   union {                               /* For padding... */
@@ -1160,7 +1160,7 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   /* release the shrink mutex if we have lock */
   if(_tinystm.owned_thread_id == pthread_self()){
     /* we have lock */
-    _tinystm.owned_thread_id = NULL;
+    _tinystm.owned_thread_id = (pthread_t)NULL;
     pthread_mutex_unlock(&_tinystm.shrink_mutex);
     //printf("here UNLOCK the mutex\n");
     /* atomically decrease wait_count */
@@ -1698,7 +1698,7 @@ int_stm_commit(stm_tx_t *tx)
   /* release the shrink mutex */
   if(_tinystm.owned_thread_id == pthread_self()){
     /* we have lock */
-    _tinystm.owned_thread_id = NULL;
+    _tinystm.owned_thread_id = (pthread_t)NULL;
     pthread_mutex_unlock(&_tinystm.shrink_mutex);
     //printf("here UNLOCK the mutex\n");
     /* atomically decrease wait_count */
