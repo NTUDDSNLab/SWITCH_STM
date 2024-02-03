@@ -23,21 +23,44 @@ scheduler_init(coroutine_array_t** ca, void (*funcPtr)(void))
 }
 
 unsigned int
-scheduler_decide()
+scheduler_decide(coroutine_array_t* ca)
 {  
-   static unsigned int rnd = 0; 
-   //rnd = 1;
+   static unsigned int decision = 0; 
+   int max_tx_number;
+   switch (SCHEDULE_POLICY) {
+      case 0:
+         //random
+         decision = rand() % MAX_COR_PER_THREAD;
+         break;
 
-   rnd = rand() % MAX_COR_PER_THREAD;
+      case 1:
+         //sequence
+         decision++;
+         decision = decision % MAX_COR_PER_THREAD;
+         break;
 
-   /*
-   rnd++;
-   rnd = rnd % MAX_COR_PER_THREAD;
-   */
+      case 2:
+         // don't switch
+         break;
 
-   //printf("\nrnd : %d",rnd);
-   //fflush(stdout);
-   return rnd;
+      case 3:
+         //Finish the quick-ending task first
+         max_tx_number = ca->array[0].status;
+         decision = 0;
+         for (int i =1 ; i < MAX_COR_PER_THREAD; i++){
+            if (ca->array[i].status > max_tx_number){
+               decision = i;
+               max_tx_number = ca->array[i].status; 
+            }
+         }
+         break;
+
+      default:
+         //random
+         decision = rand() % MAX_COR_PER_THREAD;
+
+   }
+   return decision;
 }
 
 extern __thread struct coroutine * cur_cor;
@@ -46,7 +69,7 @@ void
 scheduler_run(coroutine_array_t** ca)
 {
    //First pick a coroutine 
-   cur_cor = coroutine_array_get(*ca, scheduler_decide());
+   cur_cor = coroutine_array_get(*ca, 0);
 
    //then run that coroutine, if rollback then switch to another
    while(1){
@@ -56,13 +79,12 @@ scheduler_run(coroutine_array_t** ca)
       }
       else{
          if (thread_barrier_exist == false){
-            cur_cor = coroutine_array_get(*ca, scheduler_decide());
+            cur_cor = coroutine_array_get(*ca, scheduler_decide(*ca));
          }
       }
    }
 
    //finish the rest coroutine
-   
    for(int i = 0; i < MAX_COR_PER_THREAD; i++){
       cur_cor = coroutine_array_get(*ca, i);
       // check weather thread barrier exist 

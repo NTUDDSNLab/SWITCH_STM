@@ -14,7 +14,7 @@
 # define MAX_COR_PER_THREAD                 5     /* Maximum coroutine per thread */
 #endif /* SWITCH_STM */
 
-/* Scheduling Policy 0: randomo select, 1: ACO */
-#define SCHEDULE_POLICY                     0
+/* Scheduling Policy 0: randomo select, 1: sequence 2: don't switch 3: Finish the quick-ending task first*/
+#define SCHEDULE_POLICY                     3
 
 #endif /* _PARAM_H_ */
