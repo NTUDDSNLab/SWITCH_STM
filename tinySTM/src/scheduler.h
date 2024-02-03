@@ -8,6 +8,7 @@
 #include "param.h"
 #include "aco.h"
 #include "thread.h"
+#include "tm.h"
 
 void
 scheduler_init(coroutine_array_t** ca, void (*funcPtr)(void))
@@ -32,9 +33,6 @@ scheduler_decide()
    /*
    rnd++;
    rnd = rnd % MAX_COR_PER_THREAD;
-   if(rnd == 0){
-      rnd ++;
-   }
    */
 
    //printf("\nrnd : %d",rnd);
@@ -43,7 +41,7 @@ scheduler_decide()
 }
 
 extern __thread struct coroutine * cur_cor;
-
+bool thread_barrier_exist = false;
 void
 scheduler_run(coroutine_array_t** ca)
 {
@@ -57,17 +55,28 @@ scheduler_run(coroutine_array_t** ca)
          break;
       }
       else{
-         cur_cor = coroutine_array_get(*ca, scheduler_decide());
+         if (thread_barrier_exist == false){
+            cur_cor = coroutine_array_get(*ca, scheduler_decide());
+         }
       }
    }
 
    //finish the rest coroutine
+   
    for(int i = 0; i < MAX_COR_PER_THREAD; i++){
       cur_cor = coroutine_array_get(*ca, i);
-      while(cur_cor->co->is_end == 0){
-         aco_resume(cur_cor->co);
+      // check weather thread barrier exist 
+      if(thread_barrier_exist == false){
+         // thread barrier not exist, the remain coroutine should be finish
+         while(cur_cor->co->is_end == 0){
+            aco_resume(cur_cor->co);
+         }
+         //assert(cur_cor->co->is_end);
       }
-      assert(cur_cor->co->is_end);
+      else{
+          // thread barrier exist, directly exit the the thread for coroutine
+         //TM_THREAD_EXIT();
+      }
    }
    
    //delete the switch_table

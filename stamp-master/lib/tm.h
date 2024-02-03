@@ -419,6 +419,7 @@
 
 #      include <mod_mem.h>
 #      include <mod_stats.h>
+#      include "switch_table.h"
 
 #      define TM_STARTUP(numThread)     if (sizeof(long) != sizeof(void *)) { \
                                           fprintf(stderr, "Error: unsupported long and pointer sizes\n"); \
@@ -462,8 +463,10 @@
 #    define TM_EARLY_RELEASE(var)       /* nothing */
 
 #  else /* !OTM */
+extern __thread struct coroutine * cur_cor;
 
 #    define TM_START(ro)                do { \
+                                            cur_cor->status = __COUNTER__; \
                                             stm_tx_attr_t _a = {{.read_only = ro}}; \
                                             sigjmp_buf *_e = stm_start(_a); \
                                             if (_e != NULL) sigsetjmp(*_e, 0); \

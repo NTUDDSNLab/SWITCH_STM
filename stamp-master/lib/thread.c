@@ -93,6 +93,7 @@ static volatile bool_t   global_doShutdown      = FALSE;
 //extern __thread switch_table_t * sw_table;
 extern __thread coroutine_array_t * cor_array;
 extern __thread coroutine_t * cur_cor;
+extern bool thread_barrier_exist;
 #endif /* SWITCH_STM */
 
 /* =============================================================================
@@ -382,6 +383,9 @@ thread_barrier_wait()
 #ifndef SIMULATOR
     long threadId = thread_getId();
 #endif /* !SIMULATOR */
+#ifdef SWITCH_STM
+    thread_barrier_exist = true;
+#endif /* SWITCH_STM */
     THREAD_BARRIER(global_barrierPtr, threadId);
 }
 

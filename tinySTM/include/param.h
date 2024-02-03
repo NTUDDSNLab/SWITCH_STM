@@ -11,7 +11,7 @@
 #endif /* CONTENTION_INTENSITY */
 
 #ifdef SWITCH_STM
-# define MAX_COR_PER_THREAD                  8     /* Maximum coroutine per thread */
+# define MAX_COR_PER_THREAD                 5     /* Maximum coroutine per thread */
 #endif /* SWITCH_STM */
 
 /* Scheduling Policy 0: randomo select, 1: ACO */

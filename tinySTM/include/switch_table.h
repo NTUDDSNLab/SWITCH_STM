@@ -30,6 +30,7 @@ typedef struct coroutine {
 typedef struct coroutine {
     aco_t* co;
     struct stm_tx* tx;
+    int status;
     void (*coro_func)(void);
     void *coro_arg;
 } coroutine_t;

@@ -16,6 +16,7 @@ coroutine_array_create(void)
     for (int i = 0; i < MAX_COR_PER_THREAD; i++) {
         ca->array[i].co = NULL;
         ca->array[i].tx = NULL;
+        ca->array[i].status = -1;
         ca->array[i].coro_arg = NULL;
         ca->array[i].coro_func = NULL;
     }

@@ -11,3 +11,14 @@
 *.ele
 *.node
 *.poly
+# output data
+stamp-master/*.stm
+# execution file
+stamp-master/bayes/bayes
+stamp-master/genome/genome
+stamp-master/intruder/intruder
+stamp-master/kmeans/kmeans
+stamp-master/labyrinth/labyrinth
+stamp-master/ssca2/ssca2
+stamp-master/vacation/vacation
+stamp-master/yada/yada
