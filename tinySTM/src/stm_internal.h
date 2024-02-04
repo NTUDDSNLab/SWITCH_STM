@@ -121,14 +121,17 @@
 #endif /* CM == CM_BACKOFF */
 
 #if CM == CM_MODULAR
-# ifndef MAX_BACKOFF
-#  define MAX_BACKOFF                   (1UL << 31)
-# endif /* MAX_BACKOFF*/
 # define VR_THRESHOLD                   "VR_THRESHOLD"
 # ifndef VR_THRESHOLD_DEFAULT
 #  define VR_THRESHOLD_DEFAULT          3                   /* -1 means no visible reads. 0 means always use visible reads. */
 # endif /* VR_THRESHOLD_DEFAULT */
 #endif /* CM == CM_MODULAR */
+
+#ifdef CM_POLKA
+# ifndef MAX_BACKOFF
+#  define MAX_BACKOFF                   (1UL << 31)
+# endif /* MAX_BACKOFF*/
+#endif /* CM_POLKA */
 
 #define NO_SIGNAL_HANDLER               "NO_SIGNAL_HANDLER"
 
@@ -376,12 +379,12 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 #endif /* CONFLICT_TRACKING */
 #if CM == CM_DELAY || CM == CM_MODULAR
   volatile stm_word_t *c_lock;          /* Pointer to contented lock (cause of abort) */
-  #ifdef CM_POLKA
+#endif /* CM == CM_DELAY || CM == CM_MODULAR */
+#ifdef CM_POLKA
   unsigned int polka_backoff;
   unsigned int polka_abort_count;
   struct stm_tx *enemy_tx;
-  #endif /* CM_POLKA */
-#endif /* CM == CM_DELAY || CM == CM_MODULAR */
+#endif /* CM_POLKA */
 #if CM == CM_BACKOFF
   unsigned long backoff;                /* Maximum backoff duration */
   unsigned long seed;                   /* RNG seed */
@@ -1131,10 +1134,10 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 #if CM == CM_MODULAR
   stm_word_t t;
-  #ifdef CM_POLKA
-  volatile int j;
-  #endif /* CM_POLKA */
 #endif /* CM == CM_MODULAR */
+#ifdef CM_POLKA
+  volatile int j;
+#endif /* CM_POLKA */
 
   PRINT_DEBUG("==> stm_rollback(%p[%lu-%lu])\n", tx, (unsigned long)tx->start, (unsigned long)tx->end);
 
@@ -1258,14 +1261,17 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
     tx->backoff <<= 1;
 #endif /* CM == CM_BACKOFF */
 
-#if CM == CM_DELAY || CM == CM_MODULAR
-
-  #ifdef CM_POLKA
-  tx->polka_backoff++;
-  for (j = 0; j < tx->polka_backoff; j++) {
-    // Do nothing 
+#ifdef CM_POLKA
+  if (tx->polka_backoff != 0){
+    printf("polka is working, tx->polks->backoff:%d\n",tx->polka_backoff);
+    fflush(stdout); 
   }
-  #endif /* CM_POLKA */
+  for (j = 0; j < tx->polka_backoff; j++) {
+    // Do nothing
+  }
+#endif /* CM_POLKA */
+
+#if CM == CM_DELAY || CM == CM_MODULAR
 
   /* Wait until contented lock is free */
   if (tx->c_lock != NULL) {
@@ -1684,14 +1690,13 @@ int_stm_commit(stm_tx_t *tx)
 
 #if CM == CM_MODULAR
   tx->visible_reads = 0;
+#endif /* CM == CM_MODULAR */
 
-  #ifdef CM_POLKA
+#ifdef CM_POLKA
   tx->polka_backoff = 0;
   tx->polka_abort_count = 0;
   tx->enemy_tx = NULL;
-  #endif /* CM_POLKA */
-
-#endif /* CM == CM_MODULAR */
+#endif /* CM_POLKA */
 
 #ifdef IRREVOCABLE_ENABLED
   if (unlikely(tx->irrevocable)) {
