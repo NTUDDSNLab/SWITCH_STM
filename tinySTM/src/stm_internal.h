@@ -465,6 +465,11 @@ extern global_t _tinystm;
 # ifdef SWITCH_STM
 extern __thread coroutine_array_t * cor_array;
 extern __thread coroutine_t * cur_cor;
+
+#ifdef CONTENTION_INTENSITY
+extern __thread float contention_intensity;
+#endif /* CONTENTION_INTENSITY */
+
 # endif /* SWITCH_STM */
 
 #if CM == CM_MODULAR 
@@ -1299,6 +1304,11 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* ! IRREVOCABLE_ENABLED */
 
 #ifdef SWITCH_STM
+
+#ifdef CONTENTION_INTENSITY
+  contention_intensity = (ci_alpha * contention_intensity) + (1-ci_alpha);
+#endif /* CONTENTION_INTENSITY */
+
   aco_yield();
 #endif /* SWITCH_STM */
 
@@ -1723,6 +1733,10 @@ int_stm_commit(stm_tx_t *tx)
     for (cb = 0; cb < _tinystm.nb_commit_cb; cb++)
       _tinystm.commit_cb[cb].f(_tinystm.commit_cb[cb].arg);
   }
+
+#ifdef CONTENTION_INTENSITY
+  contention_intensity = (ci_alpha * contention_intensity);
+#endif /* CONTENTION_INTENSITY */
 
   return 1;
 }

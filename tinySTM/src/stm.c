@@ -125,6 +125,7 @@ pthread_key_t thread_gc;
 #ifdef SWITCH_STM
 __thread coroutine_array_t * cor_array = NULL;
 __thread coroutine_t * cur_cor = NULL;
+__thread float contention_intensity = 0;
 #else  /* !SWITCH_STM */
 __thread stm_tx_t* thread_tx = NULL;
 #endif /* !SWITCH_STM */

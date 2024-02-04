@@ -10,6 +10,13 @@
 #include "thread.h"
 #include "tm.h"
 
+extern __thread struct coroutine * cur_cor;
+bool thread_barrier_exist = false;
+
+#ifdef CONTENTION_INTENSITY
+extern __thread float contention_intensity;
+#endif /* CONTENTION_INTENSITY */
+
 void
 scheduler_init(coroutine_array_t** ca, void (*funcPtr)(void))
 {
@@ -25,7 +32,7 @@ scheduler_init(coroutine_array_t** ca, void (*funcPtr)(void))
 unsigned int
 scheduler_decide(coroutine_array_t* ca)
 {  
-   static unsigned int decision = 0; 
+   static int decision = 0;
    int max_tx_number;
    switch (SCHEDULE_POLICY) {
       case 0:
@@ -35,7 +42,7 @@ scheduler_decide(coroutine_array_t* ca)
 
       case 1:
          //sequence
-         decision++;
+         decision = decision + 1;
          decision = decision % MAX_COR_PER_THREAD;
          break;
 
@@ -45,6 +52,7 @@ scheduler_decide(coroutine_array_t* ca)
 
       case 3:
          //Finish the quick-ending task first
+         //FIXME: doesn't switch since the initial coroutine must come with max status 
          max_tx_number = ca->array[0].status;
          decision = 0;
          for (int i =1 ; i < MAX_COR_PER_THREAD; i++){
@@ -63,8 +71,6 @@ scheduler_decide(coroutine_array_t* ca)
    return decision;
 }
 
-extern __thread struct coroutine * cur_cor;
-bool thread_barrier_exist = false;
 void
 scheduler_run(coroutine_array_t** ca)
 {
@@ -78,7 +84,11 @@ scheduler_run(coroutine_array_t** ca)
          break;
       }
       else{
+         #ifdef CONTENTION_INTENSITY
+         if (thread_barrier_exist == false && contention_intensity > CI_THRESHOLD){
+         #else  /* !CONTENTION_INTENSITY */
          if (thread_barrier_exist == false){
+         #endif /* !CONTENTION_INTENSITY */
             cur_cor = coroutine_array_get(*ca, scheduler_decide(*ca));
          }
       }

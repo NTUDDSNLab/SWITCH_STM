@@ -6,8 +6,8 @@
 #endif /* CT_TABLE */
 
 #ifdef CONTENTION_INTENSITY
-# define ci_alpha                           0.449     /* TODO: hyper-parameter of alpha */
-# define CI_THRESHOLD                       0.5 /* FIXME: Find a proper */
+# define ci_alpha                           0.45 /* TODO: hyper-parameter of alpha */
+# define CI_THRESHOLD                       0.65 /* FIXME: Find a proper */
 #endif /* CONTENTION_INTENSITY */
 
 #ifdef SWITCH_STM
@@ -15,6 +15,6 @@
 #endif /* SWITCH_STM */
 
 /* Scheduling Policy 0: randomo select, 1: sequence 2: don't switch 3: Finish the quick-ending task first*/
-#define SCHEDULE_POLICY                     3
+#define SCHEDULE_POLICY                    0 
 
 #endif /* _PARAM_H_ */
