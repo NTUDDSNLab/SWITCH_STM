@@ -77,6 +77,10 @@
 #include "thread.h"
 #include "types.h"
 
+#ifdef SWITCH_STM
+#include "param.h"
+#endif /* SWITCH_STM */
+
 
 /* =============================================================================
  * client_alloc
@@ -175,7 +179,11 @@ client_run (void* argPtr)
 
     long i;
 
+    #ifdef SWITCH_STM
+    for (i = 0; i < numOperation/MAX_COR_PER_THREAD; i++) {
+    #else /* !SWITCH_STM */
     for (i = 0; i < numOperation; i++) {
+    #endif /* !SWITCH_STM */
 
         long r = random_generate(randomPtr) % 100;
         action_t action = selectAction(r, percentUser);
