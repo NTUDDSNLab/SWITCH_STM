@@ -16,6 +16,10 @@ coroutine_array_create(void)
     for (int i = 0; i < MAX_COR_PER_THREAD; i++) {
         ca->array[i].co = NULL;
         ca->array[i].tx = NULL;
+        ca->array[i].index = i;
+#ifdef EPOCH_GC
+        ca->array[i].gc = 0;
+#endif /* EPOCH_GC */
         ca->array[i].status = -1;
         ca->array[i].coro_arg = NULL;
         ca->array[i].coro_func = NULL;
@@ -89,6 +93,10 @@ coroutine_array_get(coroutine_array_t* ca, int cor_index)
     return cor;
 }
 
+int coroutine_index_get(coroutine_t* c)
+{
+    return c->index;
+};
 /*
 switch_entry_t*
 switch_entry_create(int entry_id)

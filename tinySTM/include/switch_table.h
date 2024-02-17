@@ -30,6 +30,10 @@ typedef struct coroutine {
 typedef struct coroutine {
     aco_t* co;
     struct stm_tx* tx;
+    int index;
+#ifdef EPOCH_GC
+    long gc;
+#endif /* EPOCH_GC */
     int status;
     void (*coro_func)(void);
     void *coro_arg;
@@ -72,6 +76,7 @@ coroutine_t* coroutine_array_newCo(coroutine_array_t* ca, void (*coro_func)(void
 
 coroutine_t* coroutine_array_get(coroutine_array_t* ca, int cor_index);
 
+int coroutine_index_get(coroutine_t* c);
 /*
 switch_entry_t* switch_entry_create(int entry_id);
 

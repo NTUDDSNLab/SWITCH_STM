@@ -79,11 +79,11 @@ scheduler_run(coroutine_array_t** ca)
 
    //then run that coroutine, if rollback then switch to another
    while(1){
-      aco_resume(cur_cor->co);
       if(cur_cor->co->is_end == 1){
          break;
       }
       else{
+         aco_resume(cur_cor->co);
          #ifdef CONTENTION_INTENSITY
          if (thread_barrier_exist == false && contention_intensity > CI_THRESHOLD){
          #else  /* !CONTENTION_INTENSITY */
@@ -93,7 +93,7 @@ scheduler_run(coroutine_array_t** ca)
          }
       }
    }
-
+   
    //finish the rest coroutine
    for(int i = 0; i < MAX_COR_PER_THREAD; i++){
       cur_cor = coroutine_array_get(*ca, i);

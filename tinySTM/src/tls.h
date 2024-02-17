@@ -121,20 +121,19 @@ tls_set_gc(long gc)
 #elif defined(TLS_COMPILER)
 
 #ifdef SWITCH_STM
-extern __thread coroutine_array_t * cor_array;
 extern __thread coroutine_t * cur_cor;
 #else  /* !SWITCH_STM */
 extern __thread struct stm_tx * thread_tx;
-#endif /* !SWITCH_STM */
 extern __thread long thread_gc;
+#endif /* !SWITCH_STM */
 
 static INLINE void
 tls_init(void)
 {
 #ifndef SWITCH_STM
   thread_tx = NULL;
-#endif /* !SWITCH_STM */
   thread_gc = 0;
+#endif /* !SWITCH_STM */
 }
 
 static INLINE void
@@ -142,8 +141,8 @@ tls_exit(void)
 {
 #ifndef SWITCH_STM
   thread_tx = NULL;
-#endif /* !SWITCH_STM*/
   thread_gc = 0;
+#endif /* !SWITCH_STM*/
 }
 
 static INLINE struct stm_tx *
@@ -159,7 +158,13 @@ tls_get_tx(void)
 static INLINE long
 tls_get_gc(void)
 {
+#ifdef SWITCH_STM
+#ifdef EPOCH_GC
+  return cur_cor->gc;
+#endif /* EPOCH_GC */
+#else  /* !SWITCH_STM */
   return thread_gc;
+#endif /* !SWITCH_STM */
 }
 
 static INLINE void
@@ -175,7 +180,13 @@ tls_set_tx(struct stm_tx *tx)
 static INLINE void
 tls_set_gc(long gc)
 {
+#ifdef SWITCH_STM
+#ifdef EPOCH_GC
+  cur_cor->gc = gc;
+#endif /* EPOCH_GC */
+#else  /* !SWITCH_STM */
   thread_gc = gc;
+#endif /* !SWITCH_STM */
 }
 
 

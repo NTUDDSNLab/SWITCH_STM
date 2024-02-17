@@ -132,8 +132,8 @@ __thread float contention_intensity = 0;
 
 #else  /* !SWITCH_STM */
 __thread stm_tx_t* thread_tx = NULL;
-#endif /* !SWITCH_STM */
 __thread long thread_gc = 0;
+#endif /* !SWITCH_STM */
 
 #endif /* defined(TLS_COMPILER) */
 
