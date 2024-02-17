@@ -245,10 +245,12 @@ void gc_exit(void)
   PRINT_DEBUG("==> gc_exit()\n");
 
   /* Make sure that all threads have been stopped */
+#ifndef SWITCH_STM  
   if (ATOMIC_LOAD(&gc_threads.nb_active) != 0) {
     fprintf(stderr, "Error: some threads have not been cleaned up\n");
     exit(1);
   }
+#endif /* !SWITCH_STM */
   /* Clean up memory */
   for (i = 0; i < MAX_GC_THREADS; i++)
     gc_clean_regions(gc_threads.slots[i].head);

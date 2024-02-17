@@ -412,8 +412,8 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 #ifdef SHRINK_ENABLE
   float succ_rate;                      /* successful rate */ 
   stm_word_t bloom[locality_window+1];  /* for bloom filter */    
-  pred_set_t pred_r_set;                   /* predicted Read set */
-  pred_set_t pred_w_set;                   /* predicted Write set */
+  pred_set_t pred_r_set;                /* predicted Read set */
+  pred_set_t pred_w_set;                /* predicted Write set */
   volatile stm_word_t last_status;      /* Transaction last_status */ 
 #endif /* SHRINK_ENABLE */
 } stm_tx_t;
@@ -1153,8 +1153,11 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   //printf("copy write set\n");
    
   tx->pred_w_set.nb_entries = tx->w_set.nb_entries;
-  tx->pred_w_set.size = tx->w_set.size;
-  tx->pred_w_set.entries = (pred_entry_t *)xrealloc(tx->pred_w_set.entries, tx->pred_w_set.size * sizeof(pred_entry_t));
+  //append pred_w_set if needed
+  if (tx->w_set.size > tx->pred_w_set.size){
+    tx->pred_w_set.size = tx->w_set.size;
+    tx->pred_w_set.entries = (pred_entry_t *)xrealloc(tx->pred_w_set.entries, tx->pred_w_set.size * sizeof(pred_entry_t));
+  }
   if (tx->w_set.entries != NULL) {
     // copy entries
     pred_entry_t *w_pred = tx->pred_w_set.entries;
@@ -1178,6 +1181,8 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   for(int i = locality_window; i>0 ; i--){
     tx->bloom[i] = tx->bloom[i-1];
   }
+  /* reset tx->bloom[0] */
+  tx->bloom[0] = 0; 
   /* set last status to TX_ABORTED */
   SET_STATUS(tx->last_status, TX_ABORTED);
 #endif /* SHRINK_ENABLE */
@@ -1434,9 +1439,7 @@ static INLINE stm_tx_t *
 int_stm_init_thread(void)
 {
   stm_tx_t *tx;
-
   PRINT_DEBUG("==> stm_init_thread()\n");
-
   /* Avoid initializing more than once */
   if ((tx = tls_get_tx()) != NULL)
     return tx;
@@ -1565,12 +1568,13 @@ int_stm_exit_thread(stm_tx_t *tx)
 
 #ifdef TM_STATISTICS
   /* Display statistics before to lose it */
-  if (getenv("TM_STATISTICS") != NULL) {
-    double avg_aborts = .0;
+  //if (getenv("TM_STATISTICS") != NULL) {
+    // double avg_aborts = .0;
     if (tx->stat_commits)
-      avg_aborts = (double)tx->stat_aborts / tx->stat_commits;
-    printf("Thread %p | commits:%12u avg_aborts:%12.2f max_retries:%12u\n", (void *)pthread_self(), tx->stat_commits, avg_aborts, tx->stat_retries_max);
-  }
+    // avg_aborts = (double)tx->stat_aborts / tx->stat_commits;
+    // printf("Thread %p | commits:%12u avg_aborts:%12.2f max_retries:%12u\n", (void *)pthread_self(), tx->stat_commits, avg_aborts, tx->stat_retries_max);
+    printf("Thread %p | commits:%12u aborts:%12u max_retries:%12u\n", (void *)pthread_self(), tx->stat_commits, tx->stat_aborts, tx->stat_retries_max);
+  //}
 #endif /* TM_STATISTICS */
 
   stm_quiesce_exit_thread(tx);
