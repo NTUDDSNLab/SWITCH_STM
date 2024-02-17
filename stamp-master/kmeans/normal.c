@@ -94,6 +94,10 @@
 #include "timer.h"
 #include "tm.h"
 #include "util.h"
+#ifdef SWITCH_STM
+#include "switch_table.h"
+#include "param.h"
+#endif /* SWITCH_STM */
 
 double global_time = 0.0;
 
@@ -111,8 +115,10 @@ typedef struct args {
 float global_delta;
 long global_i; /* index into task queue */
 
+#ifdef SWITCH_STM
+extern __thread coroutine_t * cur_cor;
+#endif /* SWITCH_STM */
 #define CHUNK 3
-
 
 /* =============================================================================
  * work
@@ -142,7 +148,11 @@ work (void* argPtr)
 
     myId = thread_getId();
 
+#ifdef SWITCH_STM
+    start = myId * CHUNK * coroutine_index_get(cur_cor);
+#else /* !SWITCH_STM */
     start = myId * CHUNK;
+#endif /* !SWITCH_STM */
 
     while (start < npoints) {
         stop = (((start + CHUNK) < npoints) ? (start + CHUNK) : npoints);
@@ -276,8 +286,11 @@ normal_exec (int       nthreads,
         args.clusters        = clusters;
         args.new_centers_len = new_centers_len;
         args.new_centers     = new_centers;
-
+#ifdef SWITCH_STM
+        global_i = nthreads * CHUNK * MAX_COR_PER_THREAD;
+#else /* !SWITCH_STM */
         global_i = nthreads * CHUNK;
+#endif /* !SWITCH_STM */
         global_delta = delta;
 
 #ifdef OTM
