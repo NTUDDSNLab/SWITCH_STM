@@ -125,6 +125,8 @@ pthread_key_t thread_gc;
 #ifdef SWITCH_STM
 __thread coroutine_array_t * cor_array = NULL;
 __thread coroutine_t * cur_cor = NULL;
+__thread long switch_time = 0;
+__thread long switch_time_sum = 0;
 
 #ifdef CONTENTION_INTENSITY
 __thread float contention_intensity = 0;
@@ -135,6 +137,10 @@ __thread stm_tx_t* thread_tx = NULL;
 __thread long thread_gc = 0;
 #endif /* !SWITCH_STM */
 
+#ifdef TM_STATISTICS3
+__thread long num_aborted = 0;
+__thread long num_committed = 0;
+#endif /* TM_STATISTICS3 */
 #endif /* defined(TLS_COMPILER) */
 
 /* ################################################################### *
@@ -302,7 +308,11 @@ signal_catcher(int sig)
  * Called once (from main) to initialize STM infrastructure.
  */
 _CALLCONV void
+#ifdef SHRINK_ENABLE
+stm_init(long numThread)
+#else  /* !SHRINK_ENABLE*/
 stm_init(void)
+#endif /* !SHRINK_ENABLE*/ 
 {
 #if CM == CM_MODULAR
   char *s;
@@ -342,6 +352,7 @@ stm_init(void)
 
   stm_quiesce_init();
 #ifdef SHRINK_ENABLE
+  _tinystm.global_numThread = numThread;
   stm_shrink_mutex_init();
   /* set random seed for random number */
   srand(clock());
@@ -365,6 +376,13 @@ stm_init(void)
 #ifdef CM_POLKA
   stm_set_parameter("cm_policy", "polka");
 #endif /* CM_POLKA */
+
+#ifdef SWITCH_STM
+  if(stm_set_parameter("cm_policy", "suicide") == 0) {
+    printf("WORRING! CAN'T SET CM POLICY TO DECIDED\n");
+  }
+#endif /* SWITCH_STM */
+
 }
 
 /*

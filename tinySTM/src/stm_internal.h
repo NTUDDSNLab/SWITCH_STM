@@ -457,6 +457,7 @@ typedef struct {
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
 #ifdef SHRINK_ENABLE
+  long global_numThread;
   pthread_mutex_t shrink_mutex;
   volatile unsigned int wait_count;     /* wait count*/
   pthread_t owned_thread_id;            /* id of thread which own the shrink mutex */
@@ -474,6 +475,11 @@ extern __thread float contention_intensity;
 #endif /* CONTENTION_INTENSITY */
 
 # endif /* SWITCH_STM */
+
+#ifdef TM_STATISTICS3
+extern __thread long num_aborted;
+extern __thread long num_committed;
+#endif /* TM_STATISTICS3 */
 
 #if CM == CM_MODULAR 
 # define KILL_SELF                      0x00
@@ -1072,7 +1078,7 @@ int_stm_prepare(stm_tx_t *tx)
 #ifdef SHRINK_ENABLE
 if (tx->succ_rate < succ_threshold){
   /* generate random number rnd */
-  unsigned int rnd = rand() % 32;
+  unsigned int rnd = rand() % (_tinystm.global_numThread*2);
   /* if rnd <= wait_count means high serialization affinity */
   //if(1){
   if(rnd <= _tinystm.wait_count){
@@ -1267,10 +1273,12 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 
 #ifdef CM_POLKA
+  /*
   if (tx->polka_backoff != 0){
     printf("polka is working, tx->polks->backoff:%d\n",tx->polka_backoff);
     fflush(stdout); 
   }
+  */
   for (j = 0; j < tx->polka_backoff; j++) {
     // Do nothing
   }
@@ -1313,6 +1321,10 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #else /* ! IRREVOCABLE_ENABLED */
   reason |= STM_PATH_INSTRUMENTED;
 #endif /* ! IRREVOCABLE_ENABLED */
+
+#ifdef TM_STATISTICS3
+  num_aborted++;
+#endif /* TM_STATISTICS3 */
 
 #ifdef SWITCH_STM
 
@@ -1742,6 +1754,10 @@ int_stm_commit(stm_tx_t *tx)
     for (cb = 0; cb < _tinystm.nb_commit_cb; cb++)
       _tinystm.commit_cb[cb].f(_tinystm.commit_cb[cb].arg);
   }
+
+#ifdef TM_STATISTICS3
+  num_committed++;
+#endif /* TM_STATISTICS3 */
 
 #ifdef CONTENTION_INTENSITY
   contention_intensity = (ci_alpha * contention_intensity);

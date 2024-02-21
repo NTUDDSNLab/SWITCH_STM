@@ -93,9 +93,14 @@ static volatile bool_t   global_doShutdown      = FALSE;
 //extern __thread switch_table_t * sw_table;
 extern __thread coroutine_array_t * cor_array;
 extern __thread coroutine_t * cur_cor;
+extern __thread long switch_time_sum;
 extern bool thread_barrier_exist;
 #endif /* SWITCH_STM */
 
+#ifdef TM_STATISTICS3
+extern __thread long num_aborted;
+extern __thread long num_committed;
+#endif /* TM_STATISTICS3 */
 /* =============================================================================
  * threadWait
  * -- Synchronizes all threads to start/stop parallel section
@@ -115,7 +120,7 @@ threadWait (void* argPtr)
         }
 #ifdef SWITCH_STM
         scheduler_init(&cor_array,&thread_run);
-        scheduler_run(&cor_array); 
+        scheduler_run(&cor_array);
 #else  /* !SWITCH_STM */        
         global_funcPtr(global_argPtr);
 #endif /* !SWITCH_STM */
@@ -218,6 +223,19 @@ thread_run (void)
 void
 thread_shutdown ()
 {
+#ifdef SWITCH_STM
+    if (global_threadId == 0) {
+        printf("time spend on switch is : %f s\n",(double)switch_time_sum / 1000000000.0);
+        fflush(stdout);
+       }
+#endif /* SWITCH_STM */
+#ifdef TM_STATISTICS3
+    if (global_threadId == 0) {
+        printf("committed:%ld, aborted:%ld \n",num_committed,num_aborted);
+        fflush(stdout);
+   }
+#endif /* TM_STATISTICS3 */
+
     /* Make secondary threads exit wait() */
     global_doShutdown = TRUE;
     THREAD_BARRIER(global_barrierPtr, 0);

@@ -11,6 +11,9 @@
 #include "tm.h"
 
 extern __thread struct coroutine * cur_cor;
+extern __thread long switch_time;
+extern __thread long switch_time_sum;
+struct timespec start_time, end_time;
 bool thread_barrier_exist = false;
 
 #ifdef CONTENTION_INTENSITY
@@ -73,17 +76,28 @@ scheduler_decide(coroutine_array_t* ca)
 
 void
 scheduler_run(coroutine_array_t** ca)
-{
-   //First pick a coroutine 
+{  
+   //initialize time recording module
+   switch_time = 0;
+   clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+   //Initialize a counter to count how many cor is done
+   int finished_cor_counter = 0;
+
+   //Pick a coroutine 
    cur_cor = coroutine_array_get(*ca, 0);
 
-   //then run that coroutine, if rollback then switch to another
+   //then run that coroutine, if abort then switch to another
    while(1){
+      clock_gettime(CLOCK_MONOTONIC, &end_time);
+      switch_time = switch_time + (end_time.tv_sec - start_time.tv_sec) * 1000000000L + (end_time.tv_nsec - start_time.tv_nsec);
+      aco_resume(cur_cor->co);
+      clock_gettime(CLOCK_MONOTONIC, &start_time);
       if(cur_cor->co->is_end == 1){
+         finished_cor_counter++;
          break;
       }
       else{
-         aco_resume(cur_cor->co);
          #ifdef CONTENTION_INTENSITY
          if (thread_barrier_exist == false && contention_intensity > CI_THRESHOLD){
          #else  /* !CONTENTION_INTENSITY */
@@ -94,25 +108,37 @@ scheduler_run(coroutine_array_t** ca)
       }
    }
    
+   //if thread barrier exist, don't finish the rest coroutines
+   if(thread_barrier_exist == true){
+         goto delete_ca;
+      } 
+
    //finish the rest coroutine
-   for(int i = 0; i < MAX_COR_PER_THREAD; i++){
-      cur_cor = coroutine_array_get(*ca, i);
-      // check weather thread barrier exist 
-      if(thread_barrier_exist == false){
-         // thread barrier not exist, the remain coroutine should be finish
-         while(cur_cor->co->is_end == 0){
-            aco_resume(cur_cor->co);
-         }
-         //assert(cur_cor->co->is_end);
+   while(finished_cor_counter < MAX_COR_PER_THREAD)
+   {
+      //choose a cor which is not finished
+      while(cur_cor->co->is_end == 1)
+      {
+         cur_cor = coroutine_array_get(*ca, scheduler_decide(*ca));
       }
-      else{
-          // thread barrier exist, directly exit the the thread for coroutine
-         //TM_THREAD_EXIT();
-      }
+      clock_gettime(CLOCK_MONOTONIC, &end_time);
+      switch_time = switch_time + (end_time.tv_sec - start_time.tv_sec) * 1000000000L + (end_time.tv_nsec - start_time.tv_nsec);
+      aco_resume(cur_cor->co);
+      clock_gettime(CLOCK_MONOTONIC, &start_time);
+      //if cor is finished, add the counter
+      if(cur_cor->co->is_end == 1){
+         finished_cor_counter++;
+      } 
    }
    
    //delete the switch_table
+   delete_ca:
    coroutine_array_delete(*ca);
+   
+   //caculate the time spent on switch
+   clock_gettime(CLOCK_MONOTONIC, &end_time);
+   switch_time = switch_time + (end_time.tv_sec - start_time.tv_sec) * 1000000000L + (end_time.tv_nsec - start_time.tv_nsec);
+   switch_time_sum = switch_time_sum + switch_time;
 }
 
 /* Decide which task to execute next.

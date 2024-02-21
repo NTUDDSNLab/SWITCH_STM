@@ -9,9 +9,10 @@
 # Variables
 # ==============================================================================
 
-CFLAGS   += -DSTM -I$(STM)/include -I$(STM)/src
+CFLAGS   += -DSTM -DTM_STATISTICS3 -I$(STM)/include -I$(STM)/src
 # the following FLAGS is for SWITCH_STM
 CFLAGS   += -I$(STM)/libaco -DSWITCH_STM 
+# CFLAGS   += -DSHRINK_ENABLE
 CPPFLAGS := $(CFLAGS)
 LDFLAGS  += -L$(STM)/lib
 LIBS     += -lstm

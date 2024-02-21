@@ -424,6 +424,17 @@
 #      include "switch_table.h"
 #endif /* SWITCH_STM */
 
+#ifdef SHRINK_ENABLE
+#      define TM_STARTUP(numThread)     if (sizeof(long) != sizeof(void *)) { \
+                                          fprintf(stderr, "Error: unsupported long and pointer sizes\n"); \
+                                          exit(1); \
+                                        } \
+                                        stm_init(numThread); \
+                                        mod_mem_init(0); \
+                                        if (getenv("STM_STATS") != NULL) { \
+                                          mod_stats_init(); \
+                                        }
+#else /* !SHRINK_ENABLE */ 
 #      define TM_STARTUP(numThread)     if (sizeof(long) != sizeof(void *)) { \
                                           fprintf(stderr, "Error: unsupported long and pointer sizes\n"); \
                                           exit(1); \
@@ -433,6 +444,7 @@
                                         if (getenv("STM_STATS") != NULL) { \
                                           mod_stats_init(); \
                                         }
+#endif /* !SHRINK_ENABLE */                                        
 #      define TM_SHUTDOWN()             if (getenv("STM_STATS") != NULL) { \
                                           unsigned long u; \
                                           if (stm_get_global_stats("global_nb_commits", &u) != 0) \
