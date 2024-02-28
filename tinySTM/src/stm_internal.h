@@ -467,8 +467,6 @@ typedef struct {
 extern global_t _tinystm;
 
 # ifdef SWITCH_STM
-extern __thread coroutine_array_t * cor_array;
-extern __thread coroutine_t * cur_cor;
 
 #ifdef CONTENTION_INTENSITY
 extern __thread float contention_intensity;
@@ -1758,11 +1756,12 @@ int_stm_commit(stm_tx_t *tx)
 #ifdef TM_STATISTICS3
   num_committed++;
 #endif /* TM_STATISTICS3 */
+#ifdef SWITCH_STM
 
 #ifdef CONTENTION_INTENSITY
   contention_intensity = (ci_alpha * contention_intensity);
 #endif /* CONTENTION_INTENSITY */
-
+#endif /* SWITCH_STM */
   return 1;
 }
 

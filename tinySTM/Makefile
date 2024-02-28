@@ -84,15 +84,15 @@ DEFINES += -DCM=CM_MODULAR
 # SwitchSTM enable
 ########################################################################
 
-# DEFINES += -DSWITCH_STM
-DEFINES += -USWITCH_STM
+DEFINES += -DSWITCH_STM
+# DEFINES += -USWITCH_STM
 
 ########################################################################
 # SwitchSTM contention intensity enable
 ########################################################################
 
-# DEFINES += -DCONTENTION_INTENSITY
-DEFINES += -UCONTENTION_INTENSITY
+DEFINES += -DCONTENTION_INTENSITY
+# DEFINES += -UCONTENTION_INTENSITY
 
 ########################################################################
 #Enable polka
@@ -127,6 +127,8 @@ DEFINES += -DIRREVOCABLE_ENABLED
 DEFINES += -UTM_STATISTICS
 # DEFINES += -DTM_STATISTICS2
 DEFINES += -UTM_STATISTICS2
+DEFINES += -DTM_STATISTICS3
+# DEFINES += -UTM_STATISTICS3
 
 ########################################################################
 # Prevent duplicate entries in read/write sets when accessing the same

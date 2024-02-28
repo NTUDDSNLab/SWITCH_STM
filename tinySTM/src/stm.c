@@ -125,8 +125,13 @@ pthread_key_t thread_gc;
 #ifdef SWITCH_STM
 __thread coroutine_array_t * cor_array = NULL;
 __thread coroutine_t * cur_cor = NULL;
-__thread long switch_time = 0;
-__thread long switch_time_sum = 0;
+long switch_numThread;
+__thread unsigned long run_tx_time_sum = 0;
+__thread unsigned long switch_time_sum = 0;
+__thread unsigned long stage1_time_sum = 0;
+__thread unsigned long stage2_time_sum = 0;
+__thread unsigned long do_switch_count = 0;
+__thread unsigned long no_switch_count = 0;
 
 #ifdef CONTENTION_INTENSITY
 __thread float contention_intensity = 0;
@@ -163,7 +168,7 @@ cm_aggressive(struct stm_tx *me, struct stm_tx *other, int conflict)
 static int
 cm_suicide(struct stm_tx *me, struct stm_tx *other, int conflict)
 {
-  return KILL_SELF;
+    return KILL_SELF;
 }
 
 /*
@@ -379,7 +384,13 @@ stm_init(void)
 
 #ifdef SWITCH_STM
   if(stm_set_parameter("cm_policy", "suicide") == 0) {
-    printf("WORRING! CAN'T SET CM POLICY TO DECIDED\n");
+    printf("WARNING! CAN'T SET CM POLICY TO DECIDED\n");
+  }
+#endif /* SWITCH_STM */
+
+#if !defined(SWITCH_STM) && CM == CM_MODULAR
+  if(stm_set_parameter("cm_policy", "suicide") == 0) {
+    printf("WARNING! CAN'T SET CM POLICY TO DECIDED\n");
   }
 #endif /* SWITCH_STM */
 

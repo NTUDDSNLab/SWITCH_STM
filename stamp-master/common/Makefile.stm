@@ -9,9 +9,11 @@
 # Variables
 # ==============================================================================
 
-CFLAGS   += -DSTM -DTM_STATISTICS3 -I$(STM)/include -I$(STM)/src
+CFLAGS   += -DSTM -I$(STM)/include -DTM_STATISTICS3
 # the following FLAGS is for SWITCH_STM
-CFLAGS   += -I$(STM)/libaco -DSWITCH_STM 
+# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM
+# CFLAGS   += -DCONTENTION_INTENSITY
+# the following FLAGS is for SHRINK_ENABLE
 # CFLAGS   += -DSHRINK_ENABLE
 CPPFLAGS := $(CFLAGS)
 LDFLAGS  += -L$(STM)/lib
