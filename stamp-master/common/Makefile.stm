@@ -13,6 +13,7 @@ CFLAGS   += -DSTM -I$(STM)/include -DTM_STATISTICS3
 # the following FLAGS is for SWITCH_STM
 # CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM
 # CFLAGS   += -DCONTENTION_INTENSITY
+# CFLAGS   += -DSWITCH_BACKOFF
 # the following FLAGS is for SHRINK_ENABLE
 # CFLAGS   += -DSHRINK_ENABLE
 CPPFLAGS := $(CFLAGS)

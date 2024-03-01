@@ -71,6 +71,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "thread.h"
 #include "types.h"
 #ifdef SWITCH_STM

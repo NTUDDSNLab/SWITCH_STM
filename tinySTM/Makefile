@@ -95,6 +95,13 @@ DEFINES += -DCONTENTION_INTENSITY
 # DEFINES += -UCONTENTION_INTENSITY
 
 ########################################################################
+# SwitchSTM bqckoff enable
+########################################################################
+
+DEFINES += -DSWITCH_BACKOFF
+# DEFINES += -USWITCH_BACKOFF
+
+########################################################################
 #Enable polka
 #Must come with CM_MODULAR
 ########################################################################

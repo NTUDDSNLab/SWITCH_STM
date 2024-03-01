@@ -42,7 +42,6 @@ unsigned int
 scheduler_decide(coroutine_array_t* ca, int cur_decision)
 {  
    static int decision = 0;
-   int max_tx_number;
    switch (SCHEDULE_POLICY) {
       case 0:
          //random
@@ -105,7 +104,7 @@ scheduler_run(coroutine_array_t** ca)
             }
             
             else{//contention_intensity >= CI_THRESHOLD
-                
+#           ifdef SWITCH_BACKOFF                
                int random_wait = rand() % (switch_numThread<<3);
                for(long i = 0;i < random_wait;i++){
                   //do nothing
@@ -115,6 +114,7 @@ scheduler_run(coroutine_array_t** ca)
                for(int i = 0;i < switch_rnd;i++){
                   //do nothing
                }
+#           endif /* SWITCH_BACKOFF */
                no_switch_count++;
             }
             
