@@ -10,6 +10,7 @@
 #include "thread.h"
 
 extern __thread struct coroutine * cur_cor;
+extern __thread struct coroutine_array * cor_array;
 extern long switch_numThread;
 extern __thread unsigned long run_tx_time_sum;
 extern __thread unsigned long switch_time_sum;
@@ -42,6 +43,7 @@ unsigned int
 scheduler_decide(coroutine_array_t* ca, int cur_decision)
 {  
    static int decision = 0;
+   int min_abort_count;
    switch (SCHEDULE_POLICY) {
       case 0:
          //random
@@ -57,16 +59,28 @@ scheduler_decide(coroutine_array_t* ca, int cur_decision)
          break;
 
       case 2:
-         // don't switch
-         break;
-
-      default:
-         //random
-         while(cur_decision == decision){
-            decision = rand() % MAX_COR_PER_THREAD;
+         // less abort first
+         decision = 0;
+         coroutine_t * cor = coroutine_array_get(cor_array,0); 
+         min_abort_count = cor->abort_count;
+         
+         for (int i = 0; i < MAX_COR_PER_THREAD; i++) {
+            cor = coroutine_array_get(cor_array,i); 
+            if (cor->co->is_end == 0) {
+               decision = i;
+               min_abort_count = cor->abort_count;
+               break;
+             }
          }
-         break;
+         for (int i = decision; i < MAX_COR_PER_THREAD; i++) {
+            cor = coroutine_array_get(cor_array,i);
+            if (cor->abort_count < min_abort_count && cor->co->is_end == 0) {
+               decision = i;
+               min_abort_count =cor->abort_count;
+            }
+         }
 
+         break;
    }
    return decision;
 }

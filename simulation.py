@@ -35,4 +35,10 @@ for i in range(len(sys.argv)):
             simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True, backoff = False)
         if arg == '-switch_seq_CI_backoff':
             simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True, backoff = True)
+        if arg == '-switch_laf':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False,backoff = False)
+        if arg == '-switch_laf_CI':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True, backoff = False)
+        if arg == '-switch_laf_CI_backoff':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True, backoff = True)
 

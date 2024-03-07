@@ -260,13 +260,22 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
     if (schedule_policy == 'rnd'):
         with open('tinySTM/include/param.h', 'r') as f:
             makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     0 ')
+        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     0 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     2 ','#define SCHEDULE_POLICY                     0 ')
         with open('tinySTM/include/param.h', 'w') as f:
             f.write(modified_makefile_content)
     elif (schedule_policy == 'seq'):
         with open('tinySTM/include/param.h', 'r') as f:
             makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     1 ')
+        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     1 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     2 ','#define SCHEDULE_POLICY                     1 ')
+        with open('tinySTM/include/param.h', 'w') as f:
+            f.write(modified_makefile_content)
+    elif (schedule_policy == 'laf'):
+        with open('tinySTM/include/param.h', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     2 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     2 ')
         with open('tinySTM/include/param.h', 'w') as f:
             f.write(modified_makefile_content)
     else:
@@ -334,6 +343,12 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         switch_log_name = 'switch_seq_CI'
     elif (schedule_policy == 'seq' and CI == True and backoff == True):
         switch_log_name = 'switch_seq_CI_backoff'
+    elif (schedule_policy == 'laf' and CI == False and backoff == False):
+        switch_log_name = 'switch_laf'
+    elif (schedule_policy == 'laf' and CI == True and backoff == False):
+        switch_log_name = 'switch_laf_CI'
+    elif (schedule_policy == 'laf' and CI == True and backoff == True):
+        switch_log_name = 'switch_laf_CI_backoff'
     else:
         switch_log_name = 'some_wierd_switch_mode' 
     #Run the test

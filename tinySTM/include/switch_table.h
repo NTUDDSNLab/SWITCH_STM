@@ -35,6 +35,7 @@ typedef struct coroutine {
     long gc;
 #endif /* EPOCH_GC */
     int status;
+    int abort_count;
     void (*coro_func)(void);
     void *coro_arg;
 } coroutine_t;
