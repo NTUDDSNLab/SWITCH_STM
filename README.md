@@ -32,18 +32,18 @@ python3 simulation.py -thread 1 2 4 8 16
 Use the STM flag to specify the STM to simulate.
 Available flags include:
 ```bash
-'-suicide'
-'-polka'
-'-shrink'
-'-switch_rnd'
-'-switch_rnd_CI'
-'-switch_rnd_CI_backoff'
-'-switch_seq'
-'-switch_seq_CI'
-'-switch_seq_CI_backoff'
-'-switch_laf'
-'-switch_laf_CI'
-'-switch_laf_CI_backoff'
+-suicide
+-polka
+-shrink
+-switch_rnd
+-switch_rnd_CI
+-switch_rnd_CI_backoff
+-switch_seq
+-switch_seq_CI
+-switch_seq_CI_backoff
+-switch_laf
+-switch_laf_CI
+-switch_laf_CI_backoff
 ```
 For example: 
 ```bash
