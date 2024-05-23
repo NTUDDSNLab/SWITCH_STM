@@ -480,20 +480,11 @@
 #  else /* !OTM */
 extern __thread struct coroutine * cur_cor;
 
-#ifdef SWITCH_STM
-#    define TM_START(ro)                do { \
-                                            cur_cor->status = __COUNTER__; \
-                                            stm_tx_attr_t _a = {{.read_only = ro}}; \
-                                            sigjmp_buf *_e = stm_start(_a); \
-                                            if (_e != NULL) sigsetjmp(*_e, 0); \
-                                        } while (0)
-#else  /* !SWITCH_STM */
 #    define TM_START(ro)                do { \
                                             stm_tx_attr_t _a = {{.read_only = ro}}; \
                                             sigjmp_buf *_e = stm_start(_a); \
                                             if (_e != NULL) sigsetjmp(*_e, 0); \
                                         } while (0)
-#endif /* !SWITCH_STM */                                        
 #    define TM_BEGIN()                  TM_START(0)
 #    define TM_BEGIN_RO()               TM_START(1)
 #    define TM_END()                    stm_commit()

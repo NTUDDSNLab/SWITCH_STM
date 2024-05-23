@@ -87,6 +87,15 @@
 #include "tm.h"
 #include "types.h"
 #include "utility.h"
+#ifdef SWITCH_STM
+#include "switch_table.h"
+#include "param.h"
+#endif /* SWITCH_STM */
+
+#ifdef SWITCH_STM
+extern __thread coroutine_t * cur_cor;
+extern long switch_numThread;
+#endif /* SWITCH_STM */
 
 enum param_types {
     PARAM_CLIENTS      = (unsigned char)'c',
@@ -283,7 +292,11 @@ initializeClients (manager_t* managerPtr)
     random_t* randomPtr;
     client_t** clients;
     long i;
+#ifdef SWITCH_STM
+    long numClient = (long)global_params[PARAM_CLIENTS] * MAX_COR_PER_THREAD;
+#else /* !SWITCH_STM */
     long numClient = (long)global_params[PARAM_CLIENTS];
+#endif /* !SWITCH_STM */
     long numTransaction = (long)global_params[PARAM_TRANSACTIONS];
     long numTransactionPerClient;
     long numQueryPerTransaction = (long)global_params[PARAM_NUMBER];
@@ -396,7 +409,11 @@ static void
 freeClients (client_t** clients)
 {
     long i;
+#ifdef SWITCH_STM
+    long numClient = (long)global_params[PARAM_CLIENTS] * MAX_COR_PER_THREAD;
+#else /* SWITCH_STM */
     long numClient = (long)global_params[PARAM_CLIENTS];
+#endif /* !SWITCH_STM */
 
     for (i = 0; i < numClient; i++) {
         client_t* clientPtr = clients[i];

@@ -77,7 +77,7 @@
 #ifdef SWITCH_STM
 #include "switch_table.h"
 #include "aco.h"
-#include "scheduler.h"
+#include "switcher.h"
 #endif /* SWITCH_STM */
 
 static THREAD_LOCAL_T    global_threadId;
@@ -125,8 +125,8 @@ threadWait (void* argPtr)
             break;
         }
 #ifdef SWITCH_STM
-        scheduler_init(&cor_array,&thread_run);
-        scheduler_run(&cor_array);
+        switcher_init(&cor_array,thread_run);
+        switcher_run(&cor_array);
 #else  /* !SWITCH_STM */        
         global_funcPtr(global_argPtr);
 #endif /* !SWITCH_STM */

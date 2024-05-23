@@ -78,9 +78,14 @@
 #include "types.h"
 
 #ifdef SWITCH_STM
+#include "switch_table.h"
 #include "param.h"
 #endif /* SWITCH_STM */
 
+#ifdef SWITCH_STM
+extern __thread coroutine_t * cur_cor;
+extern long switch_numThread;
+#endif /* SWITCH_STM */
 
 /* =============================================================================
  * client_alloc
@@ -161,7 +166,11 @@ client_run (void* argPtr)
 {
     TM_THREAD_ENTER();
 
+#ifdef SWITCH_STM
+    long myId = thread_getId() + (switch_numThread * coroutine_index_get(cur_cor));
+#else /* SWITCH_STM */
     long myId = thread_getId();
+#endif /* SWITCH_STM */
     client_t* clientPtr = ((client_t**)argPtr)[myId];
 
     manager_t* managerPtr = clientPtr->managerPtr;
@@ -179,11 +188,7 @@ client_run (void* argPtr)
 
     long i;
 
-    #ifdef SWITCH_STM
-    for (i = 0; i < numOperation/MAX_COR_PER_THREAD; i++) {
-    #else /* !SWITCH_STM */
     for (i = 0; i < numOperation; i++) {
-    #endif /* !SWITCH_STM */
 
         long r = random_generate(randomPtr) % 100;
         action_t action = selectAction(r, percentUser);

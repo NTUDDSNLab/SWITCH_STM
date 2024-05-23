@@ -1,5 +1,5 @@
-#ifndef _SCHEDULER_H_
-#define _SCHEDULER_H_
+#ifndef _SWITCHER_H_
+#define _SWITCHER_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,25 +22,27 @@ __thread struct timespec run_tx_start_time, run_tx_end_time;
 __thread struct timespec switch_start_time, switch_end_time;
 __thread struct timespec stage_start_time, stage_end_time;
 bool thread_barrier_exist = false;
+unsigned int switching_count = 0;
 
 #ifdef CONTENTION_INTENSITY
 extern __thread float contention_intensity;
 #endif /* CONTENTION_INTENSITY */
 
 void
-scheduler_init(coroutine_array_t** ca, void (*funcPtr)(void))
+switcher_init(coroutine_array_t** ca, void (*funcPtr)(void))
 {
-      srand(clock());
+      srandom(clock());
       aco_thread_init(NULL);
       *ca = coroutine_array_create();
-      
-      for (int i =0; i < MAX_COR_PER_THREAD; i++){
-         coroutine_array_newCo(*ca, funcPtr, NULL);
-      }
+
+      if (coroutine_array_newCo(*ca, funcPtr, NULL) == false){
+         printf("Error creating coroitine!!!\n");
+         exit(1);
+      };
 }
 
 unsigned int
-scheduler_decide(coroutine_array_t* ca, int cur_decision)
+switcher_decide(coroutine_array_t* ca, int cur_decision)
 {  
    static int decision = 0;
    int min_abort_count;
@@ -48,7 +50,7 @@ scheduler_decide(coroutine_array_t* ca, int cur_decision)
       case 0:
          //random
          while(cur_decision == decision){
-            decision = rand() % MAX_COR_PER_THREAD;
+            decision = random() % MAX_COR_PER_THREAD;
          }
          break;
 
@@ -86,13 +88,13 @@ scheduler_decide(coroutine_array_t* ca, int cur_decision)
 }
 
 void
-scheduler_run(coroutine_array_t** ca)
+switcher_run(coroutine_array_t** ca)
 { 
    clock_gettime(CLOCK_MONOTONIC, &switch_start_time);
    long run_tx_time_round = 0;
    //Initialize a counter to count how many cor is done
    int finished_cor_counter = 0;
-
+   int rnd;
    //Pick a coroutine 
    cur_cor = coroutine_array_get(*ca, 0);
 
@@ -108,31 +110,21 @@ scheduler_run(coroutine_array_t** ca)
          break;
       }
       else{
-         if (thread_barrier_exist == false){
-#        ifdef CONTENTION_INTENSITY
-            if (contention_intensity <= CI_THRESHOLD){ 
-#        endif /* !CONTENTION_INTENSITY */
-               cur_cor = coroutine_array_get(*ca, scheduler_decide(*ca,coroutine_index_get(cur_cor)));
+         rnd = random() % (switch_numThread * MAX_COR_PER_THREAD);
+         /* if rnd <= wait_count means high serialization affinity */
+         if (thread_barrier_exist == false && rnd <= switching_count){
+         #ifdef CONTENTION_INTENSITY
+            if (contention_intensity >= CI_THRESHOLD){ 
+         #endif /* !CONTENTION_INTENSITY */
+               /* do switch */
+               cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
                do_switch_count++;
-#        ifdef CONTENTION_INTENSITY
+         #ifdef CONTENTION_INTENSITY
             }
-            
-            else{//contention_intensity >= CI_THRESHOLD
-#           ifdef SWITCH_BACKOFF                
-               int random_wait = rand() % (switch_numThread<<3);
-               for(long i = 0;i < random_wait;i++){
-                  //do nothing
-               }
-               
-               int switch_rnd = rand() % 100;
-               for(int i = 0;i < switch_rnd;i++){
-                  //do nothing
-               }
-#           endif /* SWITCH_BACKOFF */
+            else{//contention_intensity <= CI_THRESHOLD
                no_switch_count++;
             }
-            
-#     endif /* !CONTENTION_INTENSITY */
+         #endif /* !CONTENTION_INTENSITY */
          }    
          else{
             no_switch_count++;   
@@ -154,7 +146,7 @@ scheduler_run(coroutine_array_t** ca)
       //choose a cor which is not finished
       while(cur_cor->co->is_end == 1)
       {
-         cur_cor = coroutine_array_get(*ca, scheduler_decide(*ca,coroutine_index_get(cur_cor)));
+         cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
       }
       clock_gettime(CLOCK_MONOTONIC, &run_tx_start_time);
       aco_resume(cur_cor->co);
@@ -180,69 +172,4 @@ scheduler_run(coroutine_array_t** ca)
    run_tx_time_sum = run_tx_time_sum + run_tx_time_round;
 }
 
-/* Decide which task to execute next.
- * If contention is detected -> proactive instantiation or switch to pending task
- * else keep normal execution
- * 
- * Update CTT info to instruct next iteration.
- * 
- * condition types: 
-    0: main co enters TM_THREAD_EXIT()
-    1: non-main co enters TM_THREAD_EXIT()
-    2: main co enters stm_rollback()
-    3: non-main co enters stm_rollback()
- */
-/*
-static inline void
-coro_thread_exit(switch_table_t* st)
-{
-   // Check if the current coroutine is main_co 
-   if (st->isMain()) {
-      // Check if there are pending task in switching table 
-      if (st->size == 0) return;
-      else {
-         
-      }
-   }
-
-
-}
-
-
-static inline void
-coro_stm_rollback()
-{
-
-}
-*/
-
-
-// TODO: Unfinished
-// static inline void
-// switchstm_scheduler(int condition, coroutine_table_t *ct, switch_table_t *st)
-// {
-//     switch (condition) {
-//         // main co enters TM_THREAD_EXIT()
-//         case 0:
-//             coroutine_t *src_co = ct->cur_co;
-
-//             // Check if there are pending tasks
-//             for (int i = 0; i < st->max_tx_nb; i++) {
-//                 if (switch_table_isEmpty(st, i) == 0) continue;
-//                 else {
-//                     // If there are pending tasks, switch to the first one
-//                     coroutine_t *des_co = switch_table_get(st, i);
-
-//                 }
-//             }
-
-//             // If there are no pending tasks, switch to the main co
-//             break;
-            
-
-//     }
-// }
-
-
-
-#endif // _SCHEDULER_H_
+#endif // _SWITCHER_H_

@@ -117,6 +117,7 @@ long global_i; /* index into task queue */
 
 #ifdef SWITCH_STM
 extern __thread coroutine_t * cur_cor;
+extern long switch_numThread;
 #endif /* SWITCH_STM */
 #define CHUNK 3
 
@@ -146,13 +147,12 @@ work (void* argPtr)
     int stop;
     int myId;
 
-    myId = thread_getId();
-
 #ifdef SWITCH_STM
-    start = myId * CHUNK * coroutine_index_get(cur_cor);
+    myId = thread_getId() +(switch_numThread * coroutine_index_get(cur_cor));
 #else /* !SWITCH_STM */
-    start = myId * CHUNK;
+    myId = thread_getId();
 #endif /* !SWITCH_STM */
+    start = myId * CHUNK;
 
     while (start < npoints) {
         stop = (((start + CHUNK) < npoints) ? (start + CHUNK) : npoints);

@@ -245,16 +245,23 @@ cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
   me_work = (me->w_set.nb_entries << 1) + me->r_set.nb_entries;
   other_work = (other->w_set.nb_entries << 1) + other->r_set.nb_entries;
 
+  /* me w_set is not empty and enemy's w_set is empty, kill enemy */
+  if(me->w_set.nb_entries > 0 && other->w_set.nb_entries == 0){
+      other->enemy_tx = me;
+      other->polka_backoff = (me_work - other_work)<<6;
+    return KILL_OTHER;
+  }
+
   /* me work more than enemy, kill other and set the polka_backoff */
   if (me_work > other_work){
       other->enemy_tx = me;
-      other->polka_backoff = (me_work - other_work)<<5;
+      other->polka_backoff = (me_work - other_work)<<6;
     return KILL_OTHER;
   }
 
   /* enemy has done more work than me , kill myself and set the polka_backoff */
   me->enemy_tx = other;
-  me->polka_backoff = (other_work - me_work)<<5;
+  me->polka_backoff = (other_work - me_work)<<6;
   return KILL_SELF;
 }
 #endif /* CM_POLKA */
@@ -360,8 +367,11 @@ stm_init(void)
   _tinystm.global_numThread = numThread;
   stm_shrink_mutex_init();
   /* set random seed for random number */
-  srand(clock());
+  srandom(clock());
  #endif /* SHRINK_ENABLE*/
+ #ifdef SWITCH_STM
+  stm_switching_count_mutex_init();
+ #endif /* SWUTCH_STM */
   tls_init();
 
 #ifdef SIGNAL_HANDLER
@@ -379,16 +389,12 @@ stm_init(void)
   _tinystm.initialized = 1;
 
 #ifdef CM_POLKA
-  stm_set_parameter("cm_policy", "polka");
-#endif /* CM_POLKA */
-
-#ifdef SWITCH_STM
-  if(stm_set_parameter("cm_policy", "suicide") == 0) {
+  if(stm_set_parameter("cm_policy", "polka") == 0) {
     printf("WARNING! CAN'T SET CM POLICY TO DECIDED\n");
   }
-#endif /* SWITCH_STM */
+#endif /* CM_POLKA */
 
-#if !defined(SWITCH_STM) && CM == CM_MODULAR
+#if defined(SWITCH_STM) && CM == CM_MODULAR
   if(stm_set_parameter("cm_policy", "suicide") == 0) {
     printf("WARNING! CAN'T SET CM POLICY TO DECIDED\n");
   }
@@ -411,6 +417,9 @@ stm_exit(void)
 #ifdef SHRINK_ENABLE
   stm_shrink_mutex_exit();
 #endif /* SHRINK_ENABLE */ 
+#ifdef SWITCH_STM
+  stm_switching_count_mutex_exit();
+#endif /* SWITCH_STM */
   stm_quiesce_exit();
 
 #ifdef EPOCH_GC
