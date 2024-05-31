@@ -46,12 +46,12 @@ def parse_threads_list():
 def reset_makefile_config_to_suicide():
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
-    modified_makefile_content = makefile_content.replace('# DEFINES += -DSWITCH_STM','DEFINES += -DSWITCH_STM') \
+    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM=CM_SUICIDE','DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('# DEFINES += -DCM=CM_MODULAR','DEFINES += -DCM=CM_MODULAR') \
+                                                .replace('# DEFINES += -DSWITCH_STM','DEFINES += -DSWITCH_STM') \
                                                 .replace('# DEFINES += -USWITCH_STM','DEFINES += -USWITCH_STM') \
                                                 .replace('# DEFINES += -DCONTENTION_INTENSITY','DEFINES += -DCONTENTION_INTENSITY') \
                                                 .replace('# DEFINES += -UCONTENTION_INTENSITY','DEFINES += -UCONTENTION_INTENSITY') \
-                                                .replace('# DEFINES += -DSWITCH_BACKOFF','DEFINES += -DSWITCH_BACKOFF') \
-                                                .replace('# DEFINES += -USWITCH_BACKOFF','DEFINES += -USWITCH_BACKOFF') \
                                                 .replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
                                                 .replace('# DEFINES += -UCM_POLKA','DEFINES += -UCM_POLKA') \
                                                 .replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
@@ -61,24 +61,41 @@ def reset_makefile_config_to_suicide():
 
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
-    modified_makefile_content = makefile_content.replace('DEFINES += -DSWITCH_STM','# DEFINES += -DSWITCH_STM') \
+    modified_makefile_content = makefile_content.replace('DEFINES += -DCM=CM_SUICIDE','# DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DSWITCH_STM','# DEFINES += -DSWITCH_STM') \
                                                 .replace('DEFINES += -DCONTENTION_INTENSITY','# DEFINES += -DCONTENTION_INTENSITY') \
-                                                .replace('DEFINES += -DSWITCH_BACKOFF','# DEFINES += -DSWITCH_BACKOFF') \
                                                 .replace('DEFINES += -DCM_POLKA','# DEFINES += -DCM_POLKA') \
                                                 .replace('DEFINES += -DSHRINK_ENABLE','# DEFINES += -DSHRINK_ENABLE')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
+def reset_makefile_stm_config_to_suicide():
+    with open('stamp-master/common/Makefile.stm', 'r') as f:
+        makefile_content = f.read()
+    modified_makefile_content = makefile_content.replace('# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
+                                                .replace('# CFLAGS   += -DCONTENTION_INTENSITY','CFLAGS   += -DCONTENTION_INTENSITY') \
+                                                .replace('# CFLAGS   += -DSHRINK_ENABLE','CFLAGS   += -DSHRINK_ENABLE')
+    with open('stamp-master/common/Makefile.stm', 'w') as f:
+        f.write(modified_makefile_content)
+
+    with open('stamp-master/common/Makefile.stm', 'r') as f:
+        makefile_content = f.read()
+    modified_makefile_content = makefile_content.replace('CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
+                                                .replace('CFLAGS   += -DCONTENTION_INTENSITY','# CFLAGS   += -DCONTENTION_INTENSITY') \
+                                                .replace('CFLAGS   += -DSHRINK_ENABLE','# CFLAGS   += -DSHRINK_ENABLE')
+    with open('stamp-master/common/Makefile.stm', 'w') as f:
+        f.write(modified_makefile_content)
+
 def run_tests(log = "output.stm",threads = 16):
     tests = [
         "./yada/yada -a15 -i yada/inputs/ttimeu1000000.2 -t",
-        "./genome/genome -g16384 -s64 -n16777216 -t",
         "./intruder/intruder -a10 -l128 -n262144 -s1 -t",
-        "./vacation/vacation -n2 -q90 -u98 -r1048576 -t4194304 -c",
-        "./vacation/vacation -n4 -q60 -u90 -r1048576 -t4194304 -c",
         "./kmeans/kmeans -m40 -n40 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
         "./kmeans/kmeans -m15 -n15 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
         "./bayes/bayes -v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t",
+        "./vacation/vacation -n2 -q90 -u98 -r1048576 -t4194304 -c",
+        "./vacation/vacation -n4 -q60 -u90 -r1048576 -t4194304 -c",
+        "./genome/genome -g16384 -s64 -n16777216 -t",
         "./labyrinth/labyrinth -i labyrinth/inputs/random-x512-y512-z7-n512.txt -t",
         "./ssca2/ssca2 -s20 -i1.0 -u1.0 -l3 -p3 -t"
     ]
@@ -112,6 +129,7 @@ def simulate_suicide(simulation_times = 1,threads_list = [16]):
     print("###############SUICIDE###############")
     #reset the configuration to suicide
     reset_makefile_config_to_suicide()
+    reset_makefile_stm_config_to_suicide()
 
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
@@ -147,6 +165,7 @@ def simulate_polka(simulation_times = 1,threads_list = [16]):
 
     #reset the configuration to suicide
     reset_makefile_config_to_suicide()
+    reset_makefile_stm_config_to_suicide()
 
     # Modify the configuration of tinySTM to POLKA
     with open('tinySTM/Makefile', 'r') as f:
@@ -190,11 +209,14 @@ def simulate_shrink(simulation_times = 1,threads_list = [16]):
 
     #reset the configuration to suicide
     reset_makefile_config_to_suicide()
+    reset_makefile_stm_config_to_suicide()
 
     # Modify the configuration of tinySTM to SHRINK
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
-    modified_makefile_content = makefile_content.replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
+    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM=CM_SUICIDE','DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DCM=CM_MODULAR','# DEFINES += -DCM=CM_MODULAR') \
+                                                .replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
                                                 .replace('DEFINES += -USHRINK_ENABLE','# DEFINES += -USHRINK_ENABLE')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
@@ -232,7 +254,7 @@ def simulate_shrink(simulation_times = 1,threads_list = [16]):
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_policy = 'seq', CI = True, backoff = True):
+def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_policy = 'seq', CI = True):
     ###############SWITCH_STM###############
     print("###############SWITCH_STM###############")
     print("###############SWITCH_STM###############")
@@ -247,11 +269,14 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
 
     #reset the configuration to suicide
     reset_makefile_config_to_suicide()
-
+    reset_makefile_stm_config_to_suicide()
+    
     # Modify the configuration of tinySTM to SWITCH_STM
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
-    modified_makefile_content = makefile_content.replace('# DEFINES += -DSWITCH_STM','DEFINES += -DSWITCH_STM') \
+    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM=CM_SUICIDE','DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DCM=CM_MODULAR','# DEFINES += -DCM=CM_MODULAR') \
+                                                .replace('# DEFINES += -DSWITCH_STM','DEFINES += -DSWITCH_STM') \
                                                 .replace('DEFINES += -USWITCH_STM','# DEFINES += -USWITCH_STM')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
@@ -290,15 +315,6 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         with open('tinySTM/Makefile', 'w') as f:
             f.write(modified_makefile_content)
 
-    # If backoff is true ,set the flag of backoff
-    if (backoff == True):
-        with open('tinySTM/Makefile', 'r') as f:
-            makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('# DEFINES += -DSWITCH_BACKOFF','DEFINES += -DSWITCH_BACKOFF') \
-                                                    .replace('DEFINES += -USWITCH_BACKOFF','# DEFINES += -USWITCH_BACKOFF')
-        with open('tinySTM/Makefile', 'w') as f:
-            f.write(modified_makefile_content)
-
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 
@@ -317,13 +333,6 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         with open('stamp-master/common/Makefile.stm', 'w') as f:
             f.write(modified_makefile_content) 
 
-    # If backoff is true , set the flag of backoff
-    if (backoff == True):
-        with open('stamp-master/common/Makefile.stm', 'r') as f:
-            makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('# CFLAGS   += -DSWITCH_BACKOFF','CFLAGS   += -DSWITCH_BACKOFF')
-        with open('stamp-master/common/Makefile.stm', 'w') as f:
-            f.write(modified_makefile_content)
         
     #Compile STAMP
     for directory in directories:
@@ -331,24 +340,18 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         subprocess.run(["make", "-f", f"Makefile.stm"], cwd=directory)
 
     #specify log name
-    if (schedule_policy == 'rnd' and CI == False and backoff == False):
+    if (schedule_policy == 'rnd' and CI == False):
         switch_log_name = 'switch_rnd'
-    elif (schedule_policy == 'rnd' and CI == True and backoff == False):
+    elif (schedule_policy == 'rnd' and CI == True):
         switch_log_name = 'switch_rnd_CI'
-    elif (schedule_policy == 'rnd' and CI == True and backoff == True):
-        switch_log_name = 'switch_rnd_CI_backoff'
-    elif (schedule_policy == 'seq' and CI == False and backoff == False):
+    elif (schedule_policy == 'seq' and CI == False):
         switch_log_name = 'switch_seq'
-    elif (schedule_policy == 'seq' and CI == True and backoff == False):
+    elif (schedule_policy == 'seq' and CI == True):
         switch_log_name = 'switch_seq_CI'
-    elif (schedule_policy == 'seq' and CI == True and backoff == True):
-        switch_log_name = 'switch_seq_CI_backoff'
-    elif (schedule_policy == 'laf' and CI == False and backoff == False):
+    elif (schedule_policy == 'laf' and CI == False):
         switch_log_name = 'switch_laf'
-    elif (schedule_policy == 'laf' and CI == True and backoff == False):
+    elif (schedule_policy == 'laf' and CI == True):
         switch_log_name = 'switch_laf_CI'
-    elif (schedule_policy == 'laf' and CI == True and backoff == True):
-        switch_log_name = 'switch_laf_CI_backoff'
     else:
         switch_log_name = 'some_wierd_switch_mode' 
     #Run the test
@@ -376,11 +379,3 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         modified_makefile_content = makefile_content.replace('CFLAGS   += -DCONTENTION_INTENSITY','# CFLAGS   += -DCONTENTION_INTENSITY')
         with open('stamp-master/common/Makefile.stm', 'w') as f:
             f.write(modified_makefile_content)
-
-    # If backoff is true , set the flag of backoff
-    if (backoff == True):
-        with open('stamp-master/common/Makefile.stm', 'r') as f:
-            makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('CFLAGS   += -DSWITCH_BACKOFF','# CFLAGS   += -DSWITCH_BACKOFF')
-        with open('stamp-master/common/Makefile.stm', 'w') as f:
-            f.write(modified_makefile_content) 

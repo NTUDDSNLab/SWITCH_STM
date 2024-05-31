@@ -84,30 +84,23 @@ DEFINES += -DCM=CM_MODULAR
 # SwitchSTM enable
 ########################################################################
 
-DEFINES += -DSWITCH_STM
-# DEFINES += -USWITCH_STM
+# DEFINES += -DSWITCH_STM
+DEFINES += -USWITCH_STM
 
 ########################################################################
 # SwitchSTM contention intensity enable
 ########################################################################
 
-DEFINES += -DCONTENTION_INTENSITY
-# DEFINES += -UCONTENTION_INTENSITY
-
-########################################################################
-# SwitchSTM bqckoff enable
-########################################################################
-
-DEFINES += -DSWITCH_BACKOFF
-# DEFINES += -USWITCH_BACKOFF
+# DEFINES += -DCONTENTION_INTENSITY
+DEFINES += -UCONTENTION_INTENSITY
 
 ########################################################################
 #Enable polka
 #Must come with CM_MODULAR
 ########################################################################
 
-# DEFINES += -DCM_POLKA
-DEFINES += -UCM_POLKA
+DEFINES += -DCM_POLKA
+# DEFINES += -UCM_POLKA
 
 ########################################################################
 #Enable shrink

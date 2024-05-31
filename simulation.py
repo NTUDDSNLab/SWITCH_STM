@@ -24,21 +24,15 @@ for i in range(len(sys.argv)):
         if arg == '-shrink':
             simulate_shrink(simulation_times,threads_list)
         if arg == '-switch_rnd':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = False,backoff = False)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = False)
         if arg == '-switch_rnd_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True, backoff = False)
-        if arg == '-switch_rnd_CI_backoff':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True, backoff = True)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True)
         if arg == '-switch_seq':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = False,backoff = False)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = False)
         if arg == '-switch_seq_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True, backoff = False)
-        if arg == '-switch_seq_CI_backoff':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True, backoff = True)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True)
         if arg == '-switch_laf':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False,backoff = False)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False)
         if arg == '-switch_laf_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True, backoff = False)
-        if arg == '-switch_laf_CI_backoff':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True, backoff = True)
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True)
 

@@ -74,6 +74,7 @@ coroutine_array_newCo(coroutine_array_t* ca, void (*coro_func)(void), void* coro
             cor->co = aco_create(ca->main_co, ca->sstk[i], 0, coro_func, coro_arg);
             cor->tx = NULL;
             cor->abort_count = 0;
+            cor->unswitchable = 0;
             cor->coro_func = coro_func;
             cor->coro_arg = coro_arg;
         }

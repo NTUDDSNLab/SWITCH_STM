@@ -31,7 +31,7 @@ extern __thread float contention_intensity;
 void
 switcher_init(coroutine_array_t** ca, void (*funcPtr)(void))
 {
-      srandom(clock());
+      srand(clock());
       aco_thread_init(NULL);
       *ca = coroutine_array_create();
 
@@ -50,7 +50,7 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
       case 0:
          //random
          while(cur_decision == decision){
-            decision = random() % MAX_COR_PER_THREAD;
+            decision = rand() % MAX_COR_PER_THREAD;
          }
          break;
 
@@ -76,7 +76,7 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
          }
          for (int i = decision; i < MAX_COR_PER_THREAD; i++) {
             cor = coroutine_array_get(cor_array,i);
-            if (cor->abort_count < min_abort_count && cor->co->is_end == 0) {
+            if (cor->abort_count < min_abort_count && cor->co->is_end == 0 && cor->unswitchable == 0) {
                decision = i;
                min_abort_count =cor->abort_count;
             }
@@ -94,7 +94,7 @@ switcher_run(coroutine_array_t** ca)
    long run_tx_time_round = 0;
    //Initialize a counter to count how many cor is done
    int finished_cor_counter = 0;
-   int rnd;
+   unsigned int rnd_wait;
    //Pick a coroutine 
    cur_cor = coroutine_array_get(*ca, 0);
 
@@ -110,15 +110,18 @@ switcher_run(coroutine_array_t** ca)
          break;
       }
       else{
-         rnd = random() % (switch_numThread * MAX_COR_PER_THREAD);
+         rnd_wait = (rand() % switch_numThread * MAX_COR_PER_THREAD);
+         for(int i = 0; i < rnd_wait;i++){
+            // do noting but wait
+         }
          /* if rnd <= wait_count means high serialization affinity */
-         if (thread_barrier_exist == false && rnd <= switching_count){
+         if (thread_barrier_exist == false){
          #ifdef CONTENTION_INTENSITY
             if (contention_intensity >= CI_THRESHOLD){ 
          #endif /* !CONTENTION_INTENSITY */
-               /* do switch */
-               cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
-               do_switch_count++;
+                  /* do switch */
+                  cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
+                  do_switch_count++;
          #ifdef CONTENTION_INTENSITY
             }
             else{//contention_intensity <= CI_THRESHOLD

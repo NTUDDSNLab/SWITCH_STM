@@ -65,12 +65,18 @@
 #define CM_BACKOFF                      2
 #define CM_MODULAR                      3
 
+#ifdef SHRINK_ENABLE
+#define MULTIPLIER 1103515245
+#define INCREMENT 12345
+#define MODULUS 2147483648 // 2^31
+#endif /* SHRINK_ENNABLE */
+
 #ifndef CM
 # define CM                             CM_SUICIDE
 #endif /* ! CM */
 
 #ifdef CM_POLKA
-#define CM_POLKA_MAX_ABORT_TIME         20
+#define CM_POLKA_MAX_ABORT_TIME         22
 #endif /* CM_POLKA */
 
 
@@ -315,6 +321,20 @@ typedef struct pred_set {               /* pred set */
 
 #endif /* SHRINK_ENABLE */
 
+#ifdef SWITCH_STM
+
+typedef struct pred_entry {
+  volatile stm_word_t *lock;            /* Pointer to lock (for fast access) */
+} pred_entry_t;
+
+typedef struct pred_set {               /* pred set */
+  pred_entry_t * entries;               /* Array of entries */
+  unsigned int nb_entries;              /* Number if entries */
+  unsigned int size;                    /* Size of array */
+} pred_set_t;
+
+#endif /* SWITCH_STM */
+
 typedef struct w_entry {                /* Write set entry */
   union {                               /* For padding... */
     struct {
@@ -413,6 +433,10 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   pred_set_t pred_w_set;                /* predicted Write set */
   stm_word_t last_status;               /* Transaction last_status */ 
 #endif /* SHRINK_ENABLE */
+#ifdef SWITCH_STM
+  pred_set_t pred_r_set;                /* predicted Read set */
+  pred_set_t pred_w_set;                /* predicted Write set */
+#endif /* SWITCH_STM */
 } stm_tx_t;
 
 /* This structure should be ordered by hot and cold variables */
@@ -460,15 +484,11 @@ typedef struct {
   volatile unsigned int wait_count;     /* wait count*/
   pthread_t owned_thread_id;            /* id of thread which own the shrink mutex */
 #endif /* SHRINK_ENABLE */
-#ifdef SWITCH_STM
-  pthread_mutex_t switching_count_mutex;
-#endif /* SWITCH_STM */
 } ALIGNED global_t;
 
 extern global_t _tinystm;
 
 # ifdef SWITCH_STM
-extern unsigned int switching_count;
 extern bool thread_barrier_exist;
 extern __thread struct coroutine * cur_cor;
 #ifdef CONTENTION_INTENSITY
@@ -570,30 +590,6 @@ stm_shrink_mutex_exit(void)
 
 #endif /* SHRINK_ENABLE */
 
-#ifdef SWITCH_STM
-/*
- * Initialize shrink mutex support
- */
-static INLINE void
-stm_switching_count_mutex_init(void){
-
-  PRINT_DEBUG("==> stm_switching_count_mutex_init()\n");
-
-  if (pthread_mutex_init(&_tinystm.switching_count_mutex, NULL) != 0) {
-    fprintf(stderr, "Error creating switching count mutex\n");
-    exit(1);
-  }
-}
-
-static INLINE void
-stm_switching_count_mutex_exit(void)
-{
-  PRINT_DEBUG("==> stm_switching_count_mutex_exit()\n");
-
-  pthread_mutex_destroy(&_tinystm.switching_count_mutex);
-}
-
-#endif /* SWITCH_STM */
 /*
  * Clean up quiescence support.
  */
@@ -1106,9 +1102,12 @@ int_stm_prepare(stm_tx_t *tx)
   stm_check_quiesce(tx);
 
 #ifdef SHRINK_ENABLE
+  static unsigned int seed;
+  unsigned int rnd;
+  seed = (MULTIPLIER * seed + INCREMENT) % MODULUS;
   if (tx->succ_rate < succ_threshold){
     /* generate random number rnd */
-    unsigned int rnd = random() % (_tinystm.global_numThread);
+    rnd = seed % _tinystm.global_numThread;
     /* if rnd <= wait_count means high serialization affinity */
     if(rnd <= _tinystm.wait_count){
       if (tx->pred_r_set.nb_entries != 0){
@@ -1148,15 +1147,56 @@ int_stm_prepare(stm_tx_t *tx)
         } 
       }
     }
-    /* reset pred_r_set and pred_w_set */
-    if(tx->last_status == TX_COMMITTED){
-      /* remove all address from pred_r_set*/
-      tx->pred_r_set.nb_entries = 0;
-    } 
-    /* remove all address from pred_w_set*/
-    tx->pred_w_set.nb_entries = 0;
+  }
+  /* reset pred_r_set and pred_w_set */
+  if(tx->last_status == TX_COMMITTED){
+    /* remove all address from pred_r_set*/
+    tx->pred_r_set.nb_entries = 0;
   } 
+  /* remove all address from pred_w_set*/
+  tx->pred_w_set.nb_entries = 0; 
 #endif /* SHRINK_ENABLE */ 
+#ifdef SWITCH_STM
+  if (thread_barrier_exist == false){
+    restart:
+    cur_cor->unswitchable = 0;
+    if (tx->pred_r_set.nb_entries != 0){
+      pred_entry_t *r_pred = tx->pred_r_set.entries;
+      for (int i = tx->pred_r_set.nb_entries; i > 0; i--, r_pred++){
+        /* if some other thread is writing read_pred then */
+        if (LOCK_GET_WRITE(ATOMIC_LOAD(r_pred->lock))) {
+          /* switch */
+          cur_cor->unswitchable = 1;
+          break;
+        }
+      }
+    }
+    /* if not owner of shrink lock then */
+    if (cur_cor->unswitchable == 0){
+      if (tx->pred_w_set.nb_entries != 0){
+        pred_entry_t *w_pred = tx->pred_w_set.entries;
+        for (int i = tx->pred_w_set.nb_entries; i > 0; i--, w_pred++){
+          /* if some other thread is writing write_pred then */
+          if (LOCK_GET_WRITE(ATOMIC_LOAD(w_pred->lock))){
+            /* switch */
+            cur_cor->unswitchable = 1;
+            break;
+          } 
+        }
+      } 
+    }
+
+    if (cur_cor->unswitchable == 1){
+      /* transfer control to switcher */
+      aco_yield();
+      /* start again */
+      goto restart;
+    }
+    /* reset pred_r_set and pred_w_set */
+    tx->pred_r_set.nb_entries = 0;
+    tx->pred_w_set.nb_entries = 0;
+  }
+#endif /* SWITCH_STM */ 
 }
 
 /*
@@ -1172,9 +1212,6 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #if CM == CM_MODULAR
   stm_word_t t;
 #endif /* CM == CM_MODULAR */
-#ifdef CM_POLKA
-  volatile int j;
-#endif /* CM_POLKA */
 
   PRINT_DEBUG("==> stm_rollback(%p[%lu-%lu])\n", tx, (unsigned long)tx->start, (unsigned long)tx->end);
 
@@ -1218,6 +1255,42 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   /* set last status to TX_ABORTED */
   SET_STATUS(tx->last_status, TX_ABORTED);
 #endif /* SHRINK_ENABLE */
+
+#ifdef SWITCH_STM
+  if (thread_barrier_exist == false){
+    /* copy read set to predicted read set */
+    tx->pred_r_set.nb_entries = tx->r_set.nb_entries;
+    //append pred_w_set if needed
+    if (tx->r_set.size > tx->pred_r_set.size){
+      tx->pred_r_set.size = tx->r_set.size;
+      tx->pred_r_set.entries = (pred_entry_t *)xrealloc(tx->pred_r_set.entries, tx->pred_r_set.size * sizeof(pred_entry_t));
+    }
+    if (tx->r_set.nb_entries >= 0 && tx->r_set.entries != NULL) {
+      // copy entries
+      pred_entry_t *r_pred = tx->pred_r_set.entries;
+      r_entry_t *r = tx->r_set.entries;
+      for (int i = 0; i < tx->r_set.nb_entries; i++, r_pred++, r++) {
+        r_pred->lock = r->lock;
+      }
+    }
+
+    /* copy write set to predicted write set */
+    tx->pred_w_set.nb_entries = tx->w_set.nb_entries;
+    //append pred_w_set if needed
+    if (tx->w_set.size > tx->pred_w_set.size){
+      tx->pred_w_set.size = tx->w_set.size;
+      tx->pred_w_set.entries = (pred_entry_t *)xrealloc(tx->pred_w_set.entries, tx->pred_w_set.size * sizeof(pred_entry_t));
+    }
+    if (tx->w_set.nb_entries >= 0 && tx->w_set.entries != NULL) {
+      // copy entries
+      pred_entry_t *w_pred = tx->pred_w_set.entries;
+      w_entry_t *w = tx->w_set.entries;
+      for (int i = 0; i < tx->w_set.nb_entries; i++, w_pred++, w++) {
+        w_pred->lock = w->lock;
+      }
+    }
+  }
+#endif /* SWITCH_STM */
 
 #if CM == CM_MODULAR
   /* Set status to ABORTING */
@@ -1299,6 +1372,7 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_BACKOFF */
 
 #ifdef CM_POLKA
+  volatile int j;
   for (j = 0; j < tx->polka_backoff; j++) {
     // Do nothing
   }
@@ -1352,19 +1426,10 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   contention_intensity = (ci_alpha * contention_intensity) + (1-ci_alpha);
 #endif /* CONTENTION_INTENSITY */
 
-  /* atomically increase switching_count */
-  if (thread_barrier_exist == false){
-    pthread_mutex_lock(&_tinystm.switching_count_mutex);
-    switching_count = switching_count + 1;
-    pthread_mutex_unlock(&_tinystm.switching_count_mutex);
-  }
+
   /* transfer control to switcher */
-  aco_yield();
-  /* atomically decrease switching_count */
   if (thread_barrier_exist == false){
-    pthread_mutex_lock(&_tinystm.switching_count_mutex);
-    switching_count = switching_count - 1;
-    pthread_mutex_unlock(&_tinystm.switching_count_mutex);
+    aco_yield();
   }
 
 #endif /* SWITCH_STM */
@@ -1523,7 +1588,17 @@ int_stm_init_thread(void)
   tx->pred_w_set.nb_entries = 0;
   tx->pred_w_set.size = RW_SET_SIZE;
   stm_allocate_pred_ws_entries(tx, 0);
-#endif /* SHRINK_ENABLE*/
+#endif /* SHRINK_ENABLE */
+#ifdef SWITCH_STM
+  /*pred Read set */
+  tx->pred_r_set.nb_entries = 0;
+  tx->pred_r_set.size = RW_SET_SIZE;
+  tx->pred_r_set.entries = (pred_entry_t *)xmalloc_aligned(tx->pred_r_set.size * sizeof(pred_entry_t));
+  /* pred Write set */
+  tx->pred_w_set.nb_entries = 0;
+  tx->pred_w_set.size = RW_SET_SIZE;
+  tx->pred_w_set.entries = (pred_entry_t *)xmalloc_aligned(tx->pred_w_set.size * sizeof(pred_entry_t));
+#endif /* SWITCH_STM */
   /* Nesting level */
   tx->nesting = 0;
   /* Transaction-specific data */
@@ -1630,6 +1705,11 @@ int_stm_exit_thread(stm_tx_t *tx)
   xfree(tx->pred_w_set.entries);
 #endif /* SHRINK_ENABLE */
 
+#ifdef SWITCH_STM
+  xfree(tx->pred_r_set.entries);
+  xfree(tx->pred_w_set.entries);
+#endif /* SWITCH_STM */
+
 #ifdef EPOCH_GC
   t = GET_CLOCK;
   gc_free(tx->r_set.entries, t);
@@ -1671,6 +1751,11 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
   tx->pred_r_set.nb_entries = 0;
   tx->pred_w_set.nb_entries = 0;
   #endif /* SHRINK_ENABLE */
+
+  #ifdef SWITCH_STM
+  tx->pred_r_set.nb_entries = 0;
+  tx->pred_w_set.nb_entries = 0;
+  #endif /* SWITCH_STM */
 
   /* Callbacks */
   if (likely(_tinystm.nb_start_cb != 0)) {
@@ -1788,7 +1873,7 @@ int_stm_commit(stm_tx_t *tx)
   }
   /* set last status to TX_COMMITTED*/
   SET_STATUS(tx->last_status, TX_COMMITTED);
-#endif /* SHRINK_ENABLE*/
+#endif /* SHRINK_ENABLE */
 
   /* Set status to COMMITTED */
   SET_STATUS(tx->status, TX_COMMITTED);

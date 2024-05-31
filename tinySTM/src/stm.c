@@ -221,13 +221,15 @@ cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
 {
   /* Abort too many times, kill any enemies encountered */
   if (me->polka_abort_count >= CM_POLKA_MAX_ABORT_TIME){
+    other->enemy_tx = me;
+    other->polka_backoff = 1<<4;
     return KILL_OTHER; 
   }
 
   /* same enemy encountered, increase waiting time */
   if (me->enemy_tx == other){
     if(me->polka_backoff < MAX_BACKOFF){
-      me->polka_backoff = (me->polka_backoff)<<2;
+      me->polka_backoff = (me->polka_backoff)<<1;
     }
     return KILL_SELF;
   }
@@ -235,7 +237,7 @@ cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
   /* enemy was killed by me, kill enemy again */
   if (other->enemy_tx == me){
     if(other->polka_backoff < MAX_BACKOFF){
-      other->polka_backoff = (other->polka_backoff)<<2;
+      other->polka_backoff = (other->polka_backoff)<<1;
     }
     return KILL_OTHER;
   }
@@ -245,23 +247,17 @@ cm_polka(struct stm_tx *me, struct stm_tx *other, int conflict)
   me_work = (me->w_set.nb_entries << 1) + me->r_set.nb_entries;
   other_work = (other->w_set.nb_entries << 1) + other->r_set.nb_entries;
 
-  /* me w_set is not empty and enemy's w_set is empty, kill enemy */
-  if(me->w_set.nb_entries > 0 && other->w_set.nb_entries == 0){
-      other->enemy_tx = me;
-      other->polka_backoff = (me_work - other_work)<<6;
-    return KILL_OTHER;
-  }
 
   /* me work more than enemy, kill other and set the polka_backoff */
   if (me_work > other_work){
       other->enemy_tx = me;
-      other->polka_backoff = (me_work - other_work)<<6;
+      other->polka_backoff = (me_work - other_work)<<4;
     return KILL_OTHER;
   }
 
   /* enemy has done more work than me , kill myself and set the polka_backoff */
   me->enemy_tx = other;
-  me->polka_backoff = (other_work - me_work)<<6;
+  me->polka_backoff = (other_work - me_work)<<4;
   return KILL_SELF;
 }
 #endif /* CM_POLKA */
@@ -366,12 +362,7 @@ stm_init(void)
 #ifdef SHRINK_ENABLE
   _tinystm.global_numThread = numThread;
   stm_shrink_mutex_init();
-  /* set random seed for random number */
-  srandom(clock());
  #endif /* SHRINK_ENABLE*/
- #ifdef SWITCH_STM
-  stm_switching_count_mutex_init();
- #endif /* SWUTCH_STM */
   tls_init();
 
 #ifdef SIGNAL_HANDLER
@@ -416,10 +407,8 @@ stm_exit(void)
   tls_exit();
 #ifdef SHRINK_ENABLE
   stm_shrink_mutex_exit();
-#endif /* SHRINK_ENABLE */ 
-#ifdef SWITCH_STM
-  stm_switching_count_mutex_exit();
-#endif /* SWITCH_STM */
+#endif /* SHRINK_ENABLE */
+
   stm_quiesce_exit();
 
 #ifdef EPOCH_GC
