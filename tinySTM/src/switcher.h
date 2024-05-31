@@ -110,7 +110,7 @@ switcher_run(coroutine_array_t** ca)
          break;
       }
       else{
-         rnd_wait = (rand() % switch_numThread * MAX_COR_PER_THREAD);
+         rnd_wait = rand() % switch_numThread;
          for(int i = 0; i < rnd_wait;i++){
             // do noting but wait
          }
