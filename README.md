@@ -14,7 +14,7 @@ The following files have been added to TinySTM to implement SWITCH_STM:
  - **src/switcher.h:**
  Contains the algorithm flow of the switcher entity, includes functions for initializing the switcher and constructing and executing the switch strategy.
 
-Additionally, by searching for the 'SWITCH_STM' flag, you can find all the modifications made to the original TinySTM source files to incorporate the new functionality.
+Additionally, by searching for the `SWITCH_STM` flag, you can find all the modifications made to the original TinySTM source files to incorporate the new functionality.
 
 # Makefile Configuration for SWITCH_STM
 
