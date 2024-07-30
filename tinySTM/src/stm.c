@@ -126,13 +126,14 @@ pthread_key_t thread_gc;
 __thread coroutine_array_t * cor_array = NULL;
 __thread coroutine_t * cur_cor = NULL;
 long switch_numThread;
+#ifdef SWITCH_STM_TIME_PROFILE
 __thread unsigned long run_tx_time_sum = 0;
 __thread unsigned long switch_time_sum = 0;
 __thread unsigned long stage1_time_sum = 0;
 __thread unsigned long stage2_time_sum = 0;
 __thread unsigned long do_switch_count = 0;
 __thread unsigned long no_switch_count = 0;
-
+#endif /* SWITCH_STM_TIME_PROFILE */
 #ifdef CONTENTION_INTENSITY
 __thread float contention_intensity = 0;
 #endif /* CONTENTION_INTENSITY */

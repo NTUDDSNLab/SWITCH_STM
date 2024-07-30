@@ -52,6 +52,8 @@ def reset_makefile_config_to_suicide():
                                                 .replace('# DEFINES += -USWITCH_STM','DEFINES += -USWITCH_STM') \
                                                 .replace('# DEFINES += -DCONTENTION_INTENSITY','DEFINES += -DCONTENTION_INTENSITY') \
                                                 .replace('# DEFINES += -UCONTENTION_INTENSITY','DEFINES += -UCONTENTION_INTENSITY') \
+                                                .replace('# DEFINES += -DSWITCH_STM_TIME_PROFILE','DEFINES += -DSWITCH_STM_TIME_PROFILE') \
+                                                .replace('# DEFINES += -USWITCH_STM_TIME_PROFILE','DEFINES += -USWITCH_STM_TIME_PROFILE') \
                                                 .replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
                                                 .replace('# DEFINES += -UCM_POLKA','DEFINES += -UCM_POLKA') \
                                                 .replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
@@ -64,6 +66,7 @@ def reset_makefile_config_to_suicide():
     modified_makefile_content = makefile_content.replace('DEFINES += -DCM=CM_SUICIDE','# DEFINES += -DCM=CM_SUICIDE') \
                                                 .replace('DEFINES += -DSWITCH_STM','# DEFINES += -DSWITCH_STM') \
                                                 .replace('DEFINES += -DCONTENTION_INTENSITY','# DEFINES += -DCONTENTION_INTENSITY') \
+                                                .replace('DEFINES += -DSWITCH_STM_TIME_PROFILE','# DEFINES += -DSWITCH_STM_TIME_PROFILE') \
                                                 .replace('DEFINES += -DCM_POLKA','# DEFINES += -DCM_POLKA') \
                                                 .replace('DEFINES += -DSHRINK_ENABLE','# DEFINES += -DSHRINK_ENABLE')
     with open('tinySTM/Makefile', 'w') as f:
@@ -74,6 +77,7 @@ def reset_makefile_stm_config_to_suicide():
         makefile_content = f.read()
     modified_makefile_content = makefile_content.replace('# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
                                                 .replace('# CFLAGS   += -DCONTENTION_INTENSITY','CFLAGS   += -DCONTENTION_INTENSITY') \
+                                                .replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE') \
                                                 .replace('# CFLAGS   += -DSHRINK_ENABLE','CFLAGS   += -DSHRINK_ENABLE')
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
@@ -82,6 +86,7 @@ def reset_makefile_stm_config_to_suicide():
         makefile_content = f.read()
     modified_makefile_content = makefile_content.replace('CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
                                                 .replace('CFLAGS   += -DCONTENTION_INTENSITY','# CFLAGS   += -DCONTENTION_INTENSITY') \
+                                                .replace('CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE') \
                                                 .replace('CFLAGS   += -DSHRINK_ENABLE','# CFLAGS   += -DSHRINK_ENABLE')
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
@@ -254,7 +259,7 @@ def simulate_shrink(simulation_times = 1,threads_list = [16]):
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_policy = 'seq', CI = True):
+def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_policy = 'seq', CI = True, TP = False):
     ###############SWITCH_STM###############
     print("###############SWITCH_STM###############")
     print("###############SWITCH_STM###############")
@@ -303,6 +308,21 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
                                                     .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     2 ')
         with open('tinySTM/include/param.h', 'w') as f:
             f.write(modified_makefile_content)
+        
+    # To modify param.h to select the desired strategy,
+    # you have to replace the SCHEDULE_POLICY value
+    # Change SCHEDULE_POLICY from any other value to the case number of your switch strategy
+    # you can use the following template:
+        '''
+    elif schedule_policy == 'YOUR_POLICY':
+        with open('tinySTM/include/param.h', 'r') as f:
+            makefile_content = f.read()
+        
+        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     2 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     2 ')
+        with open('tinySTM/include/param.h', 'w') as f:
+            f.write(modified_makefile_content)
+        '''
     else:
         print("No schedule policy is set, the simulation might not correct!!!")
  
@@ -315,6 +335,21 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
         with open('tinySTM/Makefile', 'w') as f:
             f.write(modified_makefile_content)
 
+    # If TP is true ,emable SWITCH_STM time profile
+    if (TP == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# DEFINES += -DSWITCH_STM_TIME_PROFILE','DEFINES += -DSWITCH_STM_TIME_PROFILE') \
+                                                    .replace('DEFINES += -USWITCH_STM_TIME_PROFILE','# DEFINES += -USWITCH_STM_TIME_PROFILE')
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+            
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 

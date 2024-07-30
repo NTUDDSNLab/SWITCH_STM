@@ -12,6 +12,7 @@
 extern __thread struct coroutine * cur_cor;
 extern __thread struct coroutine_array * cor_array;
 extern long switch_numThread;
+#ifdef SWITCH_STM_TIME_PROFILE
 extern __thread unsigned long run_tx_time_sum;
 extern __thread unsigned long switch_time_sum;
 extern __thread unsigned long stage1_time_sum;
@@ -21,6 +22,7 @@ extern __thread unsigned long no_switch_count;
 __thread struct timespec run_tx_start_time, run_tx_end_time;
 __thread struct timespec switch_start_time, switch_end_time;
 __thread struct timespec stage_start_time, stage_end_time;
+#endif /* SWITCH_STM_TIME_PROFILE */
 bool thread_barrier_exist = false;
 unsigned int switching_count = 0;
 
@@ -89,22 +91,31 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
 
 void
 switcher_run(coroutine_array_t** ca)
-{ 
+{
+   #ifdef SWITCH_STM_TIME_PROFILE 
    clock_gettime(CLOCK_MONOTONIC, &switch_start_time);
    long run_tx_time_round = 0;
+   #endif /* SWITCH_STM_TIME_PROFILE */
    //Initialize a counter to count how many cor is done
    int finished_cor_counter = 0;
-   unsigned int rnd_wait;
+   volatile unsigned int rnd_wait;
    //Pick a coroutine 
    cur_cor = coroutine_array_get(*ca, 0);
 
+   #ifdef SWITCH_STM_TIME_PROFILE 
    clock_gettime(CLOCK_MONOTONIC, &stage_start_time);
+   #endif /* SWITCH_STM_TIME_PROFILE */
+
    //then run that coroutine, if abort then switch to another
    while(1){
+      #ifdef SWITCH_STM_TIME_PROFILE 
       clock_gettime(CLOCK_MONOTONIC, &run_tx_start_time);
+      #endif /* SWITCH_STM_TIME_PROFILE */
       aco_resume(cur_cor->co);
+     #ifdef SWITCH_STM_TIME_PROFILE  
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);
       run_tx_time_round = run_tx_time_round + (run_tx_end_time.tv_sec - run_tx_start_time.tv_sec) * 1000000000 + (run_tx_end_time.tv_nsec - run_tx_start_time.tv_nsec); 
+      #endif /* SWITCH_STM_TIME_PROFILE */
       if(cur_cor->co->is_end == 1){
          finished_cor_counter++;
          break;
@@ -121,23 +132,31 @@ switcher_run(coroutine_array_t** ca)
          #endif /* !CONTENTION_INTENSITY */
                   /* do switch */
                   cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
+                  #ifdef SWITCH_STM_TIME_PROFILE
                   do_switch_count++;
+                  #endif /* SWITCH_STM_TIME_PROFILE */
          #ifdef CONTENTION_INTENSITY
             }
             else{//contention_intensity <= CI_THRESHOLD
+               #ifdef SWITCH_STM_TIME_PROFILE
                no_switch_count++;
+               #endif /* SWITCH_STM_TIME_PROFILE */
             }
          #endif /* !CONTENTION_INTENSITY */
          }    
          else{
-            no_switch_count++;   
+            #ifdef SWITCH_STM_TIME_PROFILE
+            no_switch_count++;
+            #endif /* SWITCH_STM_TIME_PROFILE */   
          }
       }
    }
+   #ifdef SWITCH_STM_TIME_PROFILE
    clock_gettime(CLOCK_MONOTONIC, &stage_end_time);
    stage1_time_sum = stage1_time_sum + (stage_end_time.tv_sec - stage_start_time.tv_sec) * 1000000000 + (stage_end_time.tv_nsec - stage_start_time.tv_nsec);
 
    clock_gettime(CLOCK_MONOTONIC, &stage_start_time);
+   #endif /* SWITCH_STM_TIME_PROFILE */ 
    //if thread barrier exist, don't finish the rest coroutines
    if(thread_barrier_exist == true){
          goto delete_ca;
@@ -151,28 +170,35 @@ switcher_run(coroutine_array_t** ca)
       {
          cur_cor = coroutine_array_get(*ca, switcher_decide(*ca,coroutine_index_get(cur_cor)));
       }
+      #ifdef SWITCH_STM_TIME_PROFILE
       clock_gettime(CLOCK_MONOTONIC, &run_tx_start_time);
+      #endif /* SWITCH_STM_TIME_PROFILE */ 
       aco_resume(cur_cor->co);
+      #ifdef SWITCH_STM_TIME_PROFILE
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);
       run_tx_time_round = run_tx_time_round + (run_tx_end_time.tv_sec - run_tx_start_time.tv_sec) * 1000000000 + (run_tx_end_time.tv_nsec - run_tx_start_time.tv_nsec); 
+      #endif /* SWITCH_STM_TIME_PROFILE */ 
       //if cor is finished, add the counter
       if(cur_cor->co->is_end == 1){
          finished_cor_counter++;
       } 
    }
+   #ifdef SWITCH_STM_TIME_PROFILE
    clock_gettime(CLOCK_MONOTONIC, &stage_end_time);
    stage2_time_sum = stage2_time_sum + (stage_end_time.tv_sec - stage_start_time.tv_sec) * 1000000000 + (stage_end_time.tv_nsec - stage_start_time.tv_nsec);
-   
+   #endif /* SWITCH_STM_TIME_PROFILE */  
    //delete the switch_table
    delete_ca:
    coroutine_array_delete(*ca);
    
    //caculate the time spent on switch
+   #ifdef SWITCH_STM_TIME_PROFILE
    clock_gettime(CLOCK_MONOTONIC, &switch_end_time);
    switch_time_sum = switch_time_sum 
                      +(switch_end_time.tv_sec - switch_start_time.tv_sec) * 1000000000 + (switch_end_time.tv_nsec - switch_start_time.tv_nsec)
                      -run_tx_time_round;
    run_tx_time_sum = run_tx_time_sum + run_tx_time_round;
+   #endif /* SWITCH_STM_TIME_PROFILE */ 
 }
 
 #endif // _SWITCHER_H_

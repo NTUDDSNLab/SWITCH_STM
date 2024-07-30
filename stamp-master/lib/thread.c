@@ -94,12 +94,14 @@ static volatile bool_t   global_doShutdown      = FALSE;
 //extern __thread switch_table_t * sw_table;
 extern __thread coroutine_array_t * cor_array;
 extern long switch_numThread;
+#ifdef SWITCH_STM_TIME_PROFILE 
 extern __thread unsigned long run_tx_time_sum;
 extern __thread unsigned long switch_time_sum;
 extern __thread unsigned long stage1_time_sum;
 extern __thread unsigned long stage2_time_sum;
 extern __thread unsigned long do_switch_count;
 extern __thread unsigned long no_switch_count;
+#endif /* SWITCH_STM_TIME_PROFILE */
 extern bool thread_barrier_exist;
 #endif /* SWITCH_STM */
 
@@ -233,11 +235,13 @@ void
 thread_shutdown ()
 {
 #ifdef SWITCH_STM
+    #ifdef SWITCH_STM_TIME_PROFILE 
     if (global_threadId == 0) {
         printf("switch counts:%ld,no switch counts:%ld\n",do_switch_count, no_switch_count);
         printf("First stage time: %f s, second stage time: %f s\n",(double)stage1_time_sum/1000000000.0, stage2_time_sum/1000000000.0);
         printf("Switch time: %f s, run Tx time :%f s\n",(double)switch_time_sum/1000000000.0, (double)run_tx_time_sum/ 1000000000.0);
        }
+    #endif /* SWITCH_STM_TIME_PROFILE */
 #endif /* SWITCH_STM */
 #ifdef TM_STATISTICS3
     if (global_threadId == 0) {

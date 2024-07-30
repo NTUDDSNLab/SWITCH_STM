@@ -95,6 +95,13 @@ DEFINES += -USWITCH_STM
 DEFINES += -UCONTENTION_INTENSITY
 
 ########################################################################
+# SwitchSTM time profile enable
+########################################################################
+
+# # DEFINES += -DSWITCH_STM_TIME_PROFILE
+DEFINES += -USWITCH_STM_TIME_PROFILE
+
+########################################################################
 #Enable polka
 #Must come with CM_MODULAR
 ########################################################################

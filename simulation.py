@@ -23,16 +23,31 @@ for i in range(len(sys.argv)):
             simulate_polka(simulation_times,threads_list)
         if arg == '-shrink':
             simulate_shrink(simulation_times,threads_list)
-        if arg == '-switch_rnd':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = False)
-        if arg == '-switch_rnd_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True)
-        if arg == '-switch_seq':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = False)
-        if arg == '-switch_seq_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True)
-        if arg == '-switch_laf':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False)
-        if arg == '-switch_laf_CI':
-            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True)
 
+        if arg == '-switch_rnd':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = False ,TP = False)
+        if arg == '-switch_rnd_CI':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True ,TP = False)
+        if arg == '-switch_rnd_CI_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = True ,TP = True)
+        if arg == '-switch_rnd_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'rnd',CI = False ,TP = True)
+        
+        if arg == '-switch_seq':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = False ,TP = False)
+        if arg == '-switch_seq_CI':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True ,TP = False)
+        if arg == '-switch_seq_CI_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = True ,TP = True)
+        if arg == '-switch_seq_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'seq',CI = False ,TP = True)
+        
+        if arg == '-switch_laf':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False ,TP = False)
+        if arg == '-switch_laf_CI':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True ,TP = False)
+        if arg == '-switch_laf_CI_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = True ,TP = True)
+        if arg == '-switch_laf_TP':
+            simulate_switch_stm(simulation_times,threads_list,schedule_policy = 'laf',CI = False ,TP = True)
+        
