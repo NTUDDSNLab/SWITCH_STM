@@ -1,5 +1,8 @@
 import re
 
+def generate_file_list(base_path, prefix, threads):
+    return [f'{base_path}/{prefix}_{thread}.stm' for thread in threads]
+
 def caculate_data(file_name, datasets):
 
     with open(file_name, 'r') as file:
