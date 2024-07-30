@@ -1,4 +1,6 @@
-# The following files have been added to TinySTM to implement SWITCH_STM:
+# Files added for SWITCH_STM:
+
+The following files have been added to TinySTM to implement SWITCH_STM:
 
  - **include/param.h**
  Some parameters for Switch_STM.
@@ -37,14 +39,14 @@ When using SWITCH_STM, it is recommended to include the following flags in the c
 Avoid including other flags to achieve better performance with SWITCH_STM.
 
 # To add a new switch strategy
-You need to modify **src/switcher.h** and update **simulation_function.py** to incorporate the selection of the new switch strategy.
+You need to modify **`src/switcher.h`** and update **`simulation_function.py`** to incorporate the selection of the new switch strategy.
 
  - **Update src/switcher.h:**
- In the switcher_decide function, add a new case for the switch strategy.
+ In the `switcher_decide` function, add a new case for the switch strategy.
 This case must return an integer decision that corresponds to the chosen coroutine.
 
  - **Modify simulation_function.py:**
- Update the simulate_switch_stm function to select the newly added case code as the switch strategy.
+ Update the `simulate_switch_stm` function to select the newly added case code as the switch strategy.
 
 By following these steps, you will successfully integrate a new switch strategy into the simulation framework.
 
@@ -119,16 +121,16 @@ Place your raw data files into this subfolder.
 **2.Modify plot.py:**
 Open plot.py and make the following modifications to customize the data you want to plot:
 
- - i. Modify x_values Array:
+ - **i. Modify x_values Array:**
  Set this array to the number of threads you want to plot. Example: from 1 to 32 threads.
 
- - ii. Modify labels Array:
+ - **ii. Modify labels Array:**
  Set this array to the STM configurations you want to plot. Example: there are 4 configurations.
 
- - iii. Modify file_list Array:
+ - **iii. Modify file_list Array:**
  Set this array to the paths of the raw data files. Each STM system's data should be placed in the same file list. Example: there are 4 STM systems, each containing raw data paths for 6 different thread counts.
 
- - iv. Add or Modify Configurations:
+ - **iv. Add or Modify Configurations:**
  To compare more system configurations or to plot different graphs, refer to the code and add or modify as needed.
 
 **3.Run plot.py:**
