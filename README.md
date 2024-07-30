@@ -133,4 +133,4 @@ The generated images will be saved in the plot folder.
 
 **Notes:**
 - When specifying the thread count, it must be enclosed in double quotes "".
-- The suicide label must be included in the STM labels to ensure proper normalization and comparison of the data.
+- The `suicide` label must be included in the STM labels to ensure proper normalization and comparison of the data.
