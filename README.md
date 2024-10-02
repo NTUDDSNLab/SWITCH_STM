@@ -1,3 +1,14 @@
+# Requirements
+- GNU gcc/ g++ version >= 9.4.0
+- make
+- [libaco](https://github.com/hnes/libaco)
+
+# Usage
+Clone this repository with all the submodules.
+```bash
+git clone --recurse-submodules https://github.com/NTUDDSNLab/SWITCH_STM.git
+```
+
 # Files added for SWITCH_STM:
 
 The following files have been added to TinySTM to implement SWITCH_STM:
