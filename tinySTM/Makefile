@@ -106,8 +106,8 @@ DEFINES += -USWITCH_STM_TIME_PROFILE
 #Must come with CM_MODULAR
 ########################################################################
 
-DEFINES += -DCM_POLKA
-# DEFINES += -UCM_POLKA
+# DEFINES += -DCM_POLKA
+DEFINES += -UCM_POLKA
 
 ########################################################################
 #Enable shrink
@@ -115,6 +115,13 @@ DEFINES += -DCM_POLKA
 
 # DEFINES += -DSHRINK_ENABLE
 DEFINES += -USHRINK_ENABLE
+
+########################################################################
+# Enable ATS - Adaptive Transaction Scheduling
+########################################################################
+
+DEFINES += -DATS_ENABLE
+# DEFINES += -UATS_ENABLE
 
 ########################################################################
 # Enable irrevocable mode (required for using the library with a

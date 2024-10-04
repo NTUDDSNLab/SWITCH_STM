@@ -321,6 +321,23 @@ typedef struct pred_set {               /* pred set */
 
 #endif /* SHRINK_ENABLE */
 
+#ifdef ATS_ENABLE
+// Node structure for the queue
+typedef struct ThreadNode {
+    pthread_t thread;
+    pthread_cond_t thread_cond; // Each thread has its own condition variable
+    struct ThreadNode* next;
+} ThreadNode;
+
+// Queue structure to hold pending threads
+typedef struct {
+    ThreadNode* front;
+    ThreadNode* rear;
+} ThreadQueue;
+#endif /* ATS_ENABLE */
+
+
+
 #ifdef SWITCH_STM
 
 typedef struct pred_entry {
@@ -433,6 +450,12 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   pred_set_t pred_w_set;                /* predicted Write set */
   stm_word_t last_status;               /* Transaction last_status */ 
 #endif /* SHRINK_ENABLE */
+#ifdef ATS_ENABLE
+  ThreadNode *threadNode;               /* Each thread/ stm has its own condition variable */
+  int ContentionIntensity;              /* The threshold of contention, which if crossed, kicks of scheduler*/
+	int current_contention;               /* The contention parameter in a transaction - high in abort, nil in commit*/
+  int mutex_held;
+#endif /* ATS_ENABLE */
 #ifdef SWITCH_STM
   pred_set_t pred_r_set;                /* predicted Read set */
   pred_set_t pred_w_set;                /* predicted Write set */
@@ -475,6 +498,10 @@ typedef struct {
   int (*contention_manager)(stm_tx_t *, stm_tx_t *, int);
   const char *cm_policy;
 #endif /* CM == CM_MODULAR */
+#ifdef ATS_ENABLE
+  ThreadQueue pendingQueue;
+  pthread_mutex_t queue_lock;  /* The pending queue lock */
+#endif /* ATS_ENABLE */
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
 #ifdef SHRINK_ENABLE
@@ -520,9 +547,44 @@ extern __thread long num_committed;
 static NOINLINE void
 stm_rollback(stm_tx_t *tx, unsigned int reason);
 
+
 /* ################################################################### *
  * INLINE FUNCTIONS
  * ################################################################### */
+
+#ifdef ATS_ENABLE
+static inline void ThreadEnqueue(ThreadNode *new_node) {
+  pthread_mutex_lock(&(_tinystm.queue_lock));
+  new_node->next = NULL;
+
+  if (_tinystm.pendingQueue.rear == NULL) {
+    _tinystm.pendingQueue.front = new_node;
+    _tinystm.pendingQueue.rear = new_node;
+  } else {
+    _tinystm.pendingQueue.rear->next = new_node;
+    _tinystm.pendingQueue.rear = new_node;
+  }
+  pthread_mutex_unlock(&(_tinystm.queue_lock));
+} 
+
+static inline ThreadNode* ThreadDequeue() {
+  pthread_mutex_lock(&(_tinystm.queue_lock));
+  if (_tinystm.pendingQueue.front == NULL) {
+    pthread_mutex_unlock(&(_tinystm.queue_lock));
+    return NULL; // Empty queue
+  }
+
+  ThreadNode *temp = _tinystm.pendingQueue.front;
+  _tinystm.pendingQueue.front = temp->next;
+  if (_tinystm.pendingQueue.front == NULL) {
+    _tinystm.pendingQueue.rear = NULL;
+  }
+  pthread_mutex_unlock(&(_tinystm.queue_lock));
+  return temp;
+}
+#endif /* ATS_ENABLE */
+
+
 
 #ifdef LOCK_IDX_SWAP
 /*
@@ -552,10 +614,18 @@ stm_quiesce_init(void)
     fprintf(stderr, "Error creating condition variable\n");
     exit(1);
   }
+#ifdef ATS_ENABLE
+  pthread_mutex_init(&(_tinystm.queue_lock), NULL);
+  _tinystm.pendingQueue.front = NULL;
+  _tinystm.pendingQueue.rear = NULL;
+#endif /* ATS_ENABLE */
+
   _tinystm.quiesce = 0;
   _tinystm.threads_nb = 0;
   _tinystm.threads = NULL;
 }
+
+
 
 #ifdef SHRINK_ENABLE
 /*
@@ -600,6 +670,11 @@ stm_quiesce_exit(void)
 
   pthread_cond_destroy(&_tinystm.quiesce_cond);
   pthread_mutex_destroy(&_tinystm.quiesce_mutex);
+
+#ifdef ATS_ENABLE
+  pthread_mutex_destroy(&(_tinystm.queue_lock));
+#endif /* ATS_ENABLE */
+
 }
 
 /*
@@ -1402,6 +1477,19 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
     return;
   }
 
+#ifdef ATS_ENABLE
+  tx->current_contention = 100;
+  tx->ContentionIntensity = (75 * tx->ContentionIntensity + 25 * tx->current_contention)/100;
+  /* If this thread holds the mutex to execute. */
+  if (tx->mutex_held) {
+    tx->mutex_held = 0;
+    ThreadNode *front_node = ThreadDequeue();
+    if (front_node != NULL) {
+      pthread_cond_signal(&(front_node->thread_cond));
+    }
+  }
+#endif /* ATS_ENABLE */
+
   /* Reset field to restart transaction */
   int_stm_prepare(tx);
 
@@ -1579,6 +1667,15 @@ int_stm_init_thread(void)
   tx->w_set.bloom = 0;
 #endif /* USE_BLOOM_FILTER */
   stm_allocate_ws_entries(tx, 0);
+#ifdef ATS_ENABLE
+  // Allocate threadNode
+  tx->threadNode = (ThreadNode*)malloc(sizeof(ThreadNode));
+  tx->threadNode->thread = pthread_self();
+  pthread_cond_init(&(tx->threadNode->thread_cond), NULL);
+  tx->ContentionIntensity = 0;
+  tx->current_contention = 0;
+  tx->mutex_held = 0;
+#endif /* ATS_ENABLE */
 #ifdef SHRINK_ENABLE
   /*pred Read set */
   tx->pred_r_set.nb_entries = 0;
@@ -1710,6 +1807,11 @@ int_stm_exit_thread(stm_tx_t *tx)
   xfree(tx->pred_w_set.entries);
 #endif /* SWITCH_STM */
 
+#ifdef ATS_ENABLE
+  pthread_cond_destroy(&(tx->threadNode->thread_cond));
+  xfree(tx->threadNode);
+#endif /* ATS_ENABLE */
+
 #ifdef EPOCH_GC
   t = GET_CLOCK;
   gc_free(tx->r_set.entries, t);
@@ -1740,6 +1842,18 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
   /* Increment nesting level */
   if (tx->nesting++ > 0)
     return NULL;
+
+#ifdef ATS_ENABLE
+  /* Detecting the contention -> enqueue and wait */
+  if (tx->ContentionIntensity > 70) {
+    ThreadEnqueue(tx->threadNode);
+    pthread_mutex_lock(&(_tinystm.queue_lock));
+    pthread_cond_wait(&(tx->threadNode->thread_cond), &(_tinystm.queue_lock));
+    tx->mutex_held = 1;
+    pthread_mutex_unlock(&(_tinystm.queue_lock));
+  }
+#endif /* ATS_ENABLE */
+
 
   /* Attributes */
   tx->attr = attr;
@@ -1884,6 +1998,18 @@ int_stm_commit(stm_tx_t *tx)
     for (cb = 0; cb < _tinystm.nb_commit_cb; cb++)
       _tinystm.commit_cb[cb].f(_tinystm.commit_cb[cb].arg);
   }
+
+#ifdef ATS_ENABLE
+	tx->current_contention = 0;
+	tx->ContentionIntensity = (75 * tx->ContentionIntensity + 25 * tx->current_contention)/100;
+  if (tx->mutex_held) {
+    tx->mutex_held = 0;
+    ThreadNode *front_node = ThreadDequeue();
+    if (front_node != NULL) {
+      pthread_cond_signal(&(front_node->thread_cond));
+    }
+  }
+#endif /* ATS_ENABLE */
 
 #ifdef TM_STATISTICS3
   num_committed++;
