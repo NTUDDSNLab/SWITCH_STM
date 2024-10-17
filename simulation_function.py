@@ -6,6 +6,9 @@ try:
     import subprocess
 except ImportError:
     print("Error: Package 'subprocess' not found or failed to import.")
+import os
+import signal
+import psutil
 
 directories = [
     'stamp-master/bayes',
@@ -57,7 +60,9 @@ def reset_makefile_config_to_suicide():
                                                 .replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
                                                 .replace('# DEFINES += -UCM_POLKA','DEFINES += -UCM_POLKA') \
                                                 .replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
-                                                .replace('# DEFINES += -USHRINK_ENABLE','DEFINES += -USHRINK_ENABLE')
+                                                .replace('# DEFINES += -USHRINK_ENABLE','DEFINES += -USHRINK_ENABLE') \
+                                                .replace('# DEFINES += -DATS_ENABLE','DEFINES += -DATS_ENABLE') \
+                                                .replace('# DEFINES += -UATS_ENABLE','DEFINES += -UATS_ENABLE')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
@@ -68,7 +73,8 @@ def reset_makefile_config_to_suicide():
                                                 .replace('DEFINES += -DCONTENTION_INTENSITY','# DEFINES += -DCONTENTION_INTENSITY') \
                                                 .replace('DEFINES += -DSWITCH_STM_TIME_PROFILE','# DEFINES += -DSWITCH_STM_TIME_PROFILE') \
                                                 .replace('DEFINES += -DCM_POLKA','# DEFINES += -DCM_POLKA') \
-                                                .replace('DEFINES += -DSHRINK_ENABLE','# DEFINES += -DSHRINK_ENABLE')
+                                                .replace('DEFINES += -DSHRINK_ENABLE','# DEFINES += -DSHRINK_ENABLE') \
+                                                .replace('DEFINES += -DATS_ENABLE','# DEFINES += -DATS_ENABLE')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
@@ -78,7 +84,8 @@ def reset_makefile_stm_config_to_suicide():
     modified_makefile_content = makefile_content.replace('# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
                                                 .replace('# CFLAGS   += -DCONTENTION_INTENSITY','CFLAGS   += -DCONTENTION_INTENSITY') \
                                                 .replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE') \
-                                                .replace('# CFLAGS   += -DSHRINK_ENABLE','CFLAGS   += -DSHRINK_ENABLE')
+                                                .replace('# CFLAGS   += -DSHRINK_ENABLE','CFLAGS   += -DSHRINK_ENABLE') \
+                                                .replace('# CFLAGS   += -DATS_ENABLE','CFLAGS   += -DATS_ENABLE')
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
@@ -87,11 +94,12 @@ def reset_makefile_stm_config_to_suicide():
     modified_makefile_content = makefile_content.replace('CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM','# CFLAGS   += -I$(STM)/libaco -I$(STM)/src -I$(STM)/src/atomic_ops -DSWITCH_STM') \
                                                 .replace('CFLAGS   += -DCONTENTION_INTENSITY','# CFLAGS   += -DCONTENTION_INTENSITY') \
                                                 .replace('CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE') \
-                                                .replace('CFLAGS   += -DSHRINK_ENABLE','# CFLAGS   += -DSHRINK_ENABLE')
+                                                .replace('CFLAGS   += -DSHRINK_ENABLE','# CFLAGS   += -DSHRINK_ENABLE') \
+                                                .replace('CFLAGS   += -DATS_ENABLE','# CFLAGS   += -DATS_ENABLE')
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def run_tests(log = "output.stm",threads = 16):
+def run_tests(log_file="output.stm", threads=16):
     tests = [
         "./yada/yada -a15 -i yada/inputs/ttimeu1000000.2 -t",
         "./intruder/intruder -a10 -l128 -n262144 -s1 -t",
@@ -108,19 +116,68 @@ def run_tests(log = "output.stm",threads = 16):
     for test in tests:
         timeout = 600
         print(f"Executing: {test} {threads}")
-        with open(log, "a") as f:
+        with open(log_file, "a") as f:
             f.write(f"Executing: {test} {threads}\n")
         try:
-            result = subprocess.run(f"{test} {threads}",cwd="stamp-master/", shell=True,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
-            with open(log, "a") as f:
-                f.write(result.stdout)
-            print(result.stdout)
+            process = subprocess.Popen(f"{test} {threads}", cwd="stamp-master/", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, preexec_fn=os.setsid)
+            stdout, _ = process.communicate(timeout=timeout)
+            with open(log_file, "a") as f:
+                f.write(stdout)
+            print(stdout)
         except subprocess.TimeoutExpired:
-            with open(log, "a") as f:
+            # Kill the entire process group
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            
+            # Wait for a short time to allow for graceful termination
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # If the process is still running, force kill it and its children
+                try:
+                    parent = psutil.Process(process.pid)
+                    for child in parent.children(recursive=True):
+                        child.terminate()
+                    parent.terminate()
+                    gone, alive = psutil.wait_procs([parent] + parent.children(recursive=True), timeout=3)
+                    for p in alive:
+                        p.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            
+            stdout, _ = process.communicate()  # Collect any remaining output
+            with open(log_file, "a") as f:
                 f.write(f"Timeout occurred after {timeout} seconds.\n")
+                f.write(stdout)  # Write any output that was produced before the timeout
             print(f"Timeout occurred after {timeout} seconds.")
+        except Exception as e:
+            with open(log_file, "a") as f:
+                f.write(f"An error occurred: {str(e)}\n")
+            print(f"An error occurred: {str(e)}")
+        finally:
+            # Ensure all related processes are terminated
+            try:
+                parent = psutil.Process(process.pid)
+                children = parent.children(recursive=True)
+                for child in children:
+                    child.terminate()
+                parent.terminate()
+                gone, alive = psutil.wait_procs([parent] + children, timeout=3)
+                for p in alive:
+                    p.kill()
+            except psutil.NoSuchProcess:
+                pass  # Process already terminated
 
-def simulate_suicide(simulation_times = 1,threads_list = [16]):
+    # After all tests, clean up any remaining zombie processes
+    try:
+        current_process = psutil.Process()
+        children = current_process.children(recursive=True)
+        for child in children:
+            if child.status() == psutil.STATUS_ZOMBIE:
+                child.wait()
+    except psutil.NoSuchProcess:
+        pass
+
+def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
     ###############SUICIDE###############
     print("###############SUICIDE###############")
     print("###############SUICIDE###############")
@@ -147,7 +204,8 @@ def simulate_suicide(simulation_times = 1,threads_list = [16]):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            run_tests(log=f"suicide_{threads}.stm", threads=threads)
+            log_file = os.path.join(log_path, f"suicide_{threads}.log")
+            run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -155,7 +213,7 @@ def simulate_suicide(simulation_times = 1,threads_list = [16]):
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of suicide! - Current time: {current_time}")
 
-def simulate_polka(simulation_times = 1,threads_list = [16]):
+def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
     ###############POLKA###############
     print("###############POLKA###############")
     print("###############POLKA###############")
@@ -191,7 +249,8 @@ def simulate_polka(simulation_times = 1,threads_list = [16]):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            run_tests(log=f"polka_{threads}.stm", threads=threads)
+            log_file = os.path.join(log_path, f"polka_{threads}.log")
+            run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -199,7 +258,54 @@ def simulate_polka(simulation_times = 1,threads_list = [16]):
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of polka! - Current time: {current_time}")
 
-def simulate_shrink(simulation_times = 1,threads_list = [16]):
+def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
+    ###############ATS#################
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+    print("#################ATS#################")
+
+    #reset the configuration to suicide
+    reset_makefile_config_to_suicide()
+    reset_makefile_stm_config_to_suicide()
+
+    # Modify the configuration of tinySTM to ATS
+    with open('tinySTM/Makefile', 'r') as f:
+        makefile_content = f.read()
+    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM=CM_SUICIDE','DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DCM=CM_MODULAR','# DEFINES += -DCM=CM_MODULAR') \
+                                                .replace('# DEFINES += -DATS_ENABLE','DEFINES += -DATS_ENABLE') \
+                                                .replace('DEFINES += -UATS_ENABLE','# DEFINES += -UATS_ENABLE')
+    with open('tinySTM/Makefile', 'w') as f:
+        f.write(modified_makefile_content)
+
+    #Compile tinySTM
+    subprocess.run(['make'],cwd='tinySTM')
+
+    #Compile STAMP
+    for directory in directories:
+        subprocess.run(["make", "-f", f"Makefile.stm", "clean"], cwd=directory)
+        subprocess.run(["make", "-f", f"Makefile.stm"], cwd=directory)
+    
+    #Run the test
+    for i in range(simulation_times):
+        for threads in threads_list:
+            log_file = os.path.join(log_path, f"ats_{threads}.log")
+            run_tests(log_file=log_file, threads=threads)
+        current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
+        print(f"Done the iteration {i} - Current time: {current_time}")
+
+    #Print current time
+    current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
+    print(f"Done all the iterations of ats! - Current time: {current_time}")
+
+
+def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log"):
     ###############SHRINK###############
     print("###############SHRINK###############")
     print("###############SHRINK###############")
@@ -244,7 +350,8 @@ def simulate_shrink(simulation_times = 1,threads_list = [16]):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            run_tests(log=f"shrink_{threads}.stm", threads=threads)
+            log_file = os.path.join(log_path, f"shrink_{threads}.log")
+            run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -259,7 +366,7 @@ def simulate_shrink(simulation_times = 1,threads_list = [16]):
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_policy = 'seq', CI = True, TP = False):
+def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='seq', CI=True, TP=False, log_path="./log"):
     ###############SWITCH_STM###############
     print("###############SWITCH_STM###############")
     print("###############SWITCH_STM###############")
@@ -392,7 +499,8 @@ def simulate_switch_stm(simulation_times = 1,threads_list = [16], schedule_polic
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            run_tests(log=f"{switch_log_name}_{threads}.stm", threads=threads)
+            log_file = os.path.join(log_path, f"{switch_log_name}_{threads}.log")
+            run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
