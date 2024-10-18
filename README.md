@@ -4,10 +4,38 @@
 - [libaco](https://github.com/hnes/libaco)
 
 # Usage
-Clone this repository with all the submodules.
+- Download the repository: clone this repository with all the submodules.
 ```bash
 git clone --recurse-submodules https://github.com/NTUDDSNLab/SWITCH_STM.git
 ```
+- Use *simulation.py* to run the simulation tests.
+
+```bash
+python3 simulation.py -simulation_times <simulation_times> -threads_list <threads_list> -log_path <log_path> <STM_labels>
+```
+    - `simulation_times`: the number of times to run the simulation. (default: 1)
+    - `threads_list`: the list of threads to run the simulation. (default: "1")
+    - `log_path`: the path to store the log files. (default: "./log")
+    - `STM_labels`:
+        -suicide
+        -polka
+        -shrink
+        -ats
+        -switch_rnd
+        -switch_rnd_TP
+        -switch_rnd_CI
+        -switch_rnd_CI_TP
+        -switch_seq
+        -switch_seq_TP
+        -switch_seq_CI
+        -switch_seq_CI_TP
+        -switch_laf
+        -switch_laf_TP
+        -switch_laf_CI
+        -switch_laf_CI_TP
+
+
+- Use `plot.py` to plot the comparison results.
 
 # Files added for SWITCH_STM:
 
