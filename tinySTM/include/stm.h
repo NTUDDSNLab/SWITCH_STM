@@ -273,11 +273,11 @@ enum {
  * the main thread, before any access to the other functions of the
  * library.
  */
-#ifdef SHRINK_ENABLE
+#if defined(SHRINK_ENABLE) || defined(ATS_ENABLE)
 void stm_init(long numThread) _CALLCONV;
-#else /* !SHRINK_ENABLE */
+#else /* !SHRINK_ENABLE || ATS_ENABLE */
 void stm_init(void) _CALLCONV;
-#endif /* !SHRINK_ENABLE */ 
+#endif /* !SHRINK_ENABLE || ATS_ENABLE */ 
 /**
  * Clean up the STM library.  This function must be called once, from
  * the main thread, after all transactional threads have completed.

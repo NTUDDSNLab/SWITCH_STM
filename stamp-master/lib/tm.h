@@ -424,7 +424,7 @@
 #      include "switch_table.h"
 #endif /* SWITCH_STM */
 
-#ifdef SHRINK_ENABLE
+#if defined(SHRINK_ENABLE) || defined(ATS_ENABLE)
 #      define TM_STARTUP(numThread)     if (sizeof(long) != sizeof(void *)) { \
                                           fprintf(stderr, "Error: unsupported long and pointer sizes\n"); \
                                           exit(1); \
@@ -434,7 +434,7 @@
                                         if (getenv("STM_STATS") != NULL) { \
                                           mod_stats_init(); \
                                         }
-#else /* !SHRINK_ENABLE */ 
+#else /* !SHRINK_ENABLE || ATS_ENABLE */ 
 #      define TM_STARTUP(numThread)     if (sizeof(long) != sizeof(void *)) { \
                                           fprintf(stderr, "Error: unsupported long and pointer sizes\n"); \
                                           exit(1); \

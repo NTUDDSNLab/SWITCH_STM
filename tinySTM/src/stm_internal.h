@@ -330,9 +330,10 @@ typedef struct ThreadNode {
 } ThreadNode;
 
 // Queue structure to hold pending threads
-typedef struct {
+typedef struct ThreadQueue{
     ThreadNode* front;
     ThreadNode* rear;
+    long size;
 } ThreadQueue;
 #endif /* ATS_ENABLE */
 
@@ -451,7 +452,7 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   stm_word_t last_status;               /* Transaction last_status */ 
 #endif /* SHRINK_ENABLE */
 #ifdef ATS_ENABLE
-  ThreadNode *threadNode;               /* Each thread/ stm has its own condition variable */
+  // ThreadNode *threadNode;               /* Each thread/ stm has its own condition variable */
   int ContentionIntensity;              /* The threshold of contention, which if crossed, kicks of scheduler*/
 	int current_contention;               /* The contention parameter in a transaction - high in abort, nil in commit*/
   int mutex_held;
@@ -499,8 +500,10 @@ typedef struct {
   const char *cm_policy;
 #endif /* CM == CM_MODULAR */
 #ifdef ATS_ENABLE
-  ThreadQueue pendingQueue;
+  // ThreadQueue pendingQueue;
   pthread_mutex_t queue_lock;  /* The pending queue lock */
+  // pthread_mutex_t global_numThread_mutex; /* The global numThread lock */
+  long global_numThread;
 #endif /* ATS_ENABLE */
   /* At least twice a cache line (256 bytes to be on the safe side) */
   char padding[CACHELINE_SIZE];
@@ -553,35 +556,36 @@ stm_rollback(stm_tx_t *tx, unsigned int reason);
  * ################################################################### */
 
 #ifdef ATS_ENABLE
-static inline void ThreadEnqueue(ThreadNode *new_node) {
-  pthread_mutex_lock(&(_tinystm.queue_lock));
-  new_node->next = NULL;
+// static inline void ThreadEnqueue(ThreadNode *new_node) {
+//   pthread_mutex_lock(&(_tinystm.queue_lock));
+//   _tinystm.pendingQueue.size++;
+//   new_node->next = NULL;
 
-  if (_tinystm.pendingQueue.rear == NULL) {
-    _tinystm.pendingQueue.front = new_node;
-    _tinystm.pendingQueue.rear = new_node;
-  } else {
-    _tinystm.pendingQueue.rear->next = new_node;
-    _tinystm.pendingQueue.rear = new_node;
-  }
-  pthread_mutex_unlock(&(_tinystm.queue_lock));
-} 
+//   if (_tinystm.pendingQueue.rear == NULL) {
+//     _tinystm.pendingQueue.front = new_node;
+//     _tinystm.pendingQueue.rear = new_node;
+//   } else {
+//     _tinystm.pendingQueue.rear->next = new_node;
+//     _tinystm.pendingQueue.rear = new_node;
+//   }
+//   pthread_mutex_unlock(&(_tinystm.queue_lock));
+// } 
 
-static inline ThreadNode* ThreadDequeue() {
-  pthread_mutex_lock(&(_tinystm.queue_lock));
-  if (_tinystm.pendingQueue.front == NULL) {
-    pthread_mutex_unlock(&(_tinystm.queue_lock));
-    return NULL; // Empty queue
-  }
-
-  ThreadNode *temp = _tinystm.pendingQueue.front;
-  _tinystm.pendingQueue.front = temp->next;
-  if (_tinystm.pendingQueue.front == NULL) {
-    _tinystm.pendingQueue.rear = NULL;
-  }
-  pthread_mutex_unlock(&(_tinystm.queue_lock));
-  return temp;
-}
+// static inline ThreadNode* ThreadDequeue() {
+//   pthread_mutex_lock(&(_tinystm.queue_lock));
+//   if (_tinystm.pendingQueue.front == NULL) {
+//     pthread_mutex_unlock(&(_tinystm.queue_lock));
+//     return NULL; // Empty queue
+//   }
+//   _tinystm.pendingQueue.size--;
+//   ThreadNode *temp = _tinystm.pendingQueue.front;
+//   _tinystm.pendingQueue.front = temp->next;
+//   if (_tinystm.pendingQueue.front == NULL) {
+//     _tinystm.pendingQueue.rear = NULL;
+//   }
+//   pthread_mutex_unlock(&(_tinystm.queue_lock));
+//   return temp;
+// }
 #endif /* ATS_ENABLE */
 
 
@@ -616,8 +620,10 @@ stm_quiesce_init(void)
   }
 #ifdef ATS_ENABLE
   pthread_mutex_init(&(_tinystm.queue_lock), NULL);
-  _tinystm.pendingQueue.front = NULL;
-  _tinystm.pendingQueue.rear = NULL;
+  // pthread_mutex_init(&(_tinystm.global_numThread_mutex), NULL);
+  // _tinystm.pendingQueue.front = NULL;
+  // _tinystm.pendingQueue.rear = NULL;
+  // _tinystm.pendingQueue.size = 0;
 #endif /* ATS_ENABLE */
 
   _tinystm.quiesce = 0;
@@ -673,6 +679,7 @@ stm_quiesce_exit(void)
 
 #ifdef ATS_ENABLE
   pthread_mutex_destroy(&(_tinystm.queue_lock));
+  //pthread_mutex_destroy(&(_tinystm.global_numThread_mutex));
 #endif /* ATS_ENABLE */
 
 }
@@ -1481,12 +1488,10 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   tx->current_contention = 100;
   tx->ContentionIntensity = (75 * tx->ContentionIntensity + 25 * tx->current_contention)/100;
   /* If this thread holds the mutex to execute. */
-  if (tx->mutex_held) {
+  if(tx->mutex_held == 1) {
     tx->mutex_held = 0;
-    ThreadNode *front_node = ThreadDequeue();
-    if (front_node != NULL) {
-      pthread_cond_signal(&(front_node->thread_cond));
-    }
+    pthread_mutex_unlock(&_tinystm.queue_lock);
+    //sched_yield();
   }
 #endif /* ATS_ENABLE */
 
@@ -1668,10 +1673,6 @@ int_stm_init_thread(void)
 #endif /* USE_BLOOM_FILTER */
   stm_allocate_ws_entries(tx, 0);
 #ifdef ATS_ENABLE
-  // Allocate threadNode
-  tx->threadNode = (ThreadNode*)malloc(sizeof(ThreadNode));
-  tx->threadNode->thread = pthread_self();
-  pthread_cond_init(&(tx->threadNode->thread_cond), NULL);
   tx->ContentionIntensity = 0;
   tx->current_contention = 0;
   tx->mutex_held = 0;
@@ -1807,11 +1808,6 @@ int_stm_exit_thread(stm_tx_t *tx)
   xfree(tx->pred_w_set.entries);
 #endif /* SWITCH_STM */
 
-#ifdef ATS_ENABLE
-  pthread_cond_destroy(&(tx->threadNode->thread_cond));
-  xfree(tx->threadNode);
-#endif /* ATS_ENABLE */
-
 #ifdef EPOCH_GC
   t = GET_CLOCK;
   gc_free(tx->r_set.entries, t);
@@ -1844,14 +1840,21 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
     return NULL;
 
 #ifdef ATS_ENABLE
-  /* Detecting the contention -> enqueue and wait */
-  if (tx->ContentionIntensity > 70) {
-    ThreadEnqueue(tx->threadNode);
-    pthread_mutex_lock(&(_tinystm.queue_lock));
-    pthread_cond_wait(&(tx->threadNode->thread_cond), &(_tinystm.queue_lock));
-    tx->mutex_held = 1;
-    pthread_mutex_unlock(&(_tinystm.queue_lock));
-  }
+	if(tx->ContentionIntensity > 70)
+	{
+    #ifdef PROFILE_TL
+      struct timeval wst;
+      gettimeofday(&wst, NULL);
+    #endif
+        pthread_mutex_lock(&_tinystm.queue_lock);
+        tx->mutex_held = 1;
+    #ifdef PROFILE_TL
+      struct timeval wet;
+      gettimeofday(&wet, NULL);
+      double tw = ((double)(wet.tv_sec) + (double)(wet.tv_usec / 1000000.0)) - ((double)(wst.tv_sec) + (double)(wst.tv_usec / 1000000.0));
+      tx->wait_t += tw;
+    #endif
+	}
 #endif /* ATS_ENABLE */
 
 
@@ -2002,13 +2005,12 @@ int_stm_commit(stm_tx_t *tx)
 #ifdef ATS_ENABLE
 	tx->current_contention = 0;
 	tx->ContentionIntensity = (75 * tx->ContentionIntensity + 25 * tx->current_contention)/100;
-  if (tx->mutex_held) {
-    tx->mutex_held = 0;
-    ThreadNode *front_node = ThreadDequeue();
-    if (front_node != NULL) {
-      pthread_cond_signal(&(front_node->thread_cond));
-    }
-  }
+
+	if(tx->mutex_held == 1) {
+	  tx->mutex_held = 0;
+	  pthread_mutex_unlock(&_tinystm.queue_lock);
+	  //sched_yield();
+	}
 #endif /* ATS_ENABLE */
 
 #ifdef TM_STATISTICS3

@@ -317,11 +317,11 @@ signal_catcher(int sig)
  * Called once (from main) to initialize STM infrastructure.
  */
 _CALLCONV void
-#ifdef SHRINK_ENABLE
+#if defined(SHRINK_ENABLE) || defined(ATS_ENABLE)
 stm_init(long numThread)
-#else  /* !SHRINK_ENABLE*/
+#else  /* !SHRINK_ENABLE || ATS_ENABLE */
 stm_init(void)
-#endif /* !SHRINK_ENABLE*/ 
+#endif /* !SHRINK_ENABLE || ATS_ENABLE */
 {
 #if CM == CM_MODULAR
   char *s;
@@ -360,6 +360,9 @@ stm_init(void)
   CLOCK = 0;
 
   stm_quiesce_init();
+#ifdef ATS_ENABLE
+  _tinystm.global_numThread = numThread;
+#endif /* ATS_ENABLE */
 #ifdef SHRINK_ENABLE
   _tinystm.global_numThread = numThread;
   stm_shrink_mutex_init();
