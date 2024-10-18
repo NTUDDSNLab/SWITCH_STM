@@ -204,7 +204,7 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"suicide_{threads}.log")
+            log_file = os.path.join(log_path, f"suicide_{threads}.stm")
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -249,7 +249,7 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"polka_{threads}.log")
+            log_file = os.path.join(log_path, f"polka_{threads}.stm")
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -295,7 +295,7 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"ats_{threads}.log")
+            log_file = os.path.join(log_path, f"ats_{threads}.stm")
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -350,7 +350,7 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"shrink_{threads}.log")
+            log_file = os.path.join(log_path, f"shrink_{threads}.stm")
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -499,7 +499,7 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"{switch_log_name}_{threads}.log")
+            log_file = os.path.join(log_path, f"{switch_log_name}_{threads}.stm")
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
