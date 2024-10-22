@@ -17,25 +17,85 @@ python3 simulation.py -simulation_times <simulation_times> -threads_list <thread
     - `threads_list`: the list of threads to run the simulation. (default: "1")
     - `log_path`: the path to store the log files. (default: "./log")
     - `STM_labels`:
-        -suicide
-        -polka
-        -shrink
-        -ats
-        -switch_rnd
-        -switch_rnd_TP
-        -switch_rnd_CI
-        -switch_rnd_CI_TP
-        -switch_seq
-        -switch_seq_TP
-        -switch_seq_CI
-        -switch_seq_CI_TP
-        -switch_laf
-        -switch_laf_TP
-        -switch_laf_CI
-        -switch_laf_CI_TP
+        - -suicide
+        - -polka
+        - -shrink
+        - -ats
+        - -switch_rnd
+        - -switch_rnd_TP
+        - -switch_rnd_CI
+        - -switch_rnd_CI_TP
+        - -switch_seq
+        - -switch_seq_TP
+        - -switch_seq_CI
+        - -switch_seq_CI_TP
+        - -switch_laf
+        - -switch_laf_TP
+        - -switch_laf_CI
+        - -switch_laf_CI_TP
 
 
 - Use `plot.py` to plot the comparison results.
+```bash
+python3 plot.py <log_path> <threads_list> <STM_labels0> <STM_labels1> ... <STM_labelsN>
+```
+The generated images will be saved in the same folder as the plot.py file.
+`Note:` 
+    * The STM_labels must include the `suicide` label. (Format: suicide not -suicide) 
+    * The format of threads_list is `"threads0 threads1 threads2 ..."`.
+
+
+## Analyzing Benchmark Results
+
+### Parsing STM Files
+
+The `parse_stm.py` script is provided to analyze the output of benchmark runs stored in STM files. This script extracts execution times and error information for each benchmark, providing statistical summaries.
+
+#### Usage
+
+To use the script, run it from the command line with the path to your STM file as an argument:
+
+```bash
+python parse_stm.py path/to/your/stm_file.stm
+```
+
+#### Result Structure
+
+The script function `parse_stm()` generates a dictionary called `results` with the following structure:
+
+```python
+results = {
+    'benchmark_name': {
+        'time_stats': {
+            'count': int,  # Number of successful executions
+            'avg': float,  # Average execution time
+            'std': float,  # Standard deviation of execution times
+            'max': float,  # Maximum execution time
+            'min': float   # Minimum execution time
+        },
+        'error_stats': {
+            'total': int,  # Total number of errors
+            'types': {
+                'error_type': int  # Number of occurrences of each error type
+            }
+        }
+    }
+}
+```
+
+- `benchmark_name`: Name of the benchmark (e.g., 'yada', 'intruder', 'kmeans_high', 'kmeans_low', etc.)
+- `time_stats`: Statistics for successful executions
+- `error_stats`: Statistics for errors encountered
+
+Error types include:
+- 'timeout': Execution timeout
+- 'segfault': Segmentation fault
+- 'assertion': Assertion failure
+- 'other_error': Other unspecified errors
+- 'no_time_found': Execution completed but no time was recorded
+
+The script will print a formatted version of these results to the console, providing an easy-to-read summary of the benchmark performance and any errors encountered.
+
 
 # Files added for SWITCH_STM:
 
@@ -173,3 +233,5 @@ The generated images will be saved in the plot folder.
 **Notes:**
 - When specifying the thread count, it must be enclosed in double quotes "".
 - The `suicide` label must be included in the STM labels to ensure proper normalization and comparison of the data.
+
+
