@@ -183,21 +183,11 @@ python3 simulation.py -thread 1 2 4 8 16
 Use the STM flag to specify the STM to simulate.
 Available flags include:
 ```bash
--suicide
--polka
--shrink
--switch_rnd
--switch_rnd_TP
--switch_rnd_CI
--switch_rnd_CI_TP
--switch_seq
--switch_seq_TP
--switch_seq_CI
--switch_seq_CI_TP
--switch_laf
--switch_laf_TP
--switch_laf_CI
--switch_laf_CI_TP
+- `STM_labels`:
+  - -suicide, -polka, -shrink, -ats
+  - -switch_rnd, -switch_rnd_TP, -switch_rnd_CI, -switch_rnd_CI_TP
+  - -switch_seq
+  - -switch_laf, -switch_laf_TP, -switch_laf_CI, -switch_laf_CI_TP
 ```
 For example: 
 ```bash
@@ -230,8 +220,57 @@ python3 plot.py data0 "1 2 4 8 16 32" suicide polka shrink switch_rnd_CI switch_
 ```
 The generated images will be saved in the plot folder.
 
+
 **Notes:**
 - When specifying the thread count, it must be enclosed in double quotes "".
 - The `suicide` label must be included in the STM labels to ensure proper normalization and comparison of the data.
+
+
+## Generating CSV Data
+To generate a CSV file compatible with `plot_csv.py` from your simulation logs (`.stm` files), use the `tables/generate_csv.py` script.
+
+### Usage
+```bash
+python3 tables/generate_csv.py [log_dir] [--output output_file]
+```
+
+### Arguments
+- `[log_dir]`: Directory containing the `.stm` log files. Defaults to `./log`.
+- `--output`: Output CSV filename. Defaults to `stm_results.csv`.
+
+### Example
+```bash
+# Generate CSV from logs in the default ./log directory
+python3 tables/generate_csv.py
+
+# Generate CSV from a specific log directory
+python3 tables/generate_csv.py ./my_logs --output my_results.csv
+```
+This will create a CSV file containing execution times and other statistics, which can then be used with `plot/plot_csv.py`.
+
+
+## Plotting from CSV
+If you have a CSV file with benchmark results (e.g., exported from a spreadsheet or another tool), you can use `plot/plot_csv.py` to generate execution time plots.
+
+### Usage
+```bash
+python3 plot/plot_csv.py <csv_file> [config1 config2 ...]
+```
+
+### Arguments
+- `<csv_file>`: Path to the CSV file. The CSV must have 'Benchmark', 'Configuration', 'Threads', and 'Avg Execution Time (s)' columns.
+- `[config1 ...]` (Optional): A space-separated list of configuration names to plot. If omitted, all configurations in the CSV are plotted.
+
+### Examples
+Plot all configurations:
+```bash
+python3 plot/plot_csv.py results.csv
+```
+
+Plot specific configurations:
+```bash
+python3 plot/plot_csv.py results.csv suicide switch_rnd
+```
+This will save a file named `execution_time_results.png` in the current directory.
 
 
