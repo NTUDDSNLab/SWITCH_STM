@@ -1,3 +1,6 @@
 [submodule "tinySTM/libaco"]
 	path = tinySTM/libaco
 	url = https://github.com/hnes/libaco.git
+[submodule "tinySTM/libfiber"]
+	path = tinySTM/libfiber
+	url = https://github.com/iqiyi/libfiber.git
