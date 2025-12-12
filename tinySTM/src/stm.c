@@ -44,6 +44,8 @@
 bool thread_barrier_exist = false;
 unsigned int switching_count = 0;
 
+#endif /* SWITCH_STM*/
+
 #ifdef SWITCH_STM_TIME_PROFILE
 __thread struct timespec run_tx_start_time, run_tx_end_time;
 __thread struct timespec switch_start_time, switch_end_time;
@@ -58,8 +60,6 @@ unsigned long long global_switch_time = 0;
 unsigned long long global_other_time = 0;
 int active_profiling_threads = 0;
 #endif
-
-#endif /* SWITCH_STM*/
 
 /* ################################################################### *
  * DEFINES
@@ -153,20 +153,24 @@ __thread unsigned long stage2_time_sum = 0;
 __thread unsigned long do_switch_count = 0;
 __thread unsigned long no_switch_count = 0;
 #endif /* SWITCH_STM_TIME_PROFILE */
+
+
+
+#else  /* !SWITCH_STM */
+__thread stm_tx_t* thread_tx = NULL;
+__thread long thread_gc = 0;
+#endif /* !SWITCH_STM */
+
 #ifdef SWITCH_STM_TIME_PROFILE
 __thread unsigned long long breakdown_commit_time = 0;
 __thread unsigned long long breakdown_abort_time = 0;
 __thread unsigned long long breakdown_wait_time = 0;
 __thread unsigned long long breakdown_switch_time = 0;
 #endif
+
 #ifdef CONTENTION_INTENSITY
 __thread float contention_intensity = 0;
 #endif /* CONTENTION_INTENSITY */
-
-#else  /* !SWITCH_STM */
-__thread stm_tx_t* thread_tx = NULL;
-__thread long thread_gc = 0;
-#endif /* !SWITCH_STM */
 
 #ifdef TM_STATISTICS3
 __thread long num_aborted = 0;

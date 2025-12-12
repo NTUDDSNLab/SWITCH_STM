@@ -79,6 +79,9 @@
 #include "aco.h"
 #include "switcher.h"
 #endif /* SWITCH_STM */
+#ifdef SWITCH_STM_TIME_PROFILE
+#include <stm.h>
+#endif
 
 static THREAD_LOCAL_T    global_threadId;
 static long              global_numThread       = 1;
@@ -135,8 +138,14 @@ threadWait (void* argPtr)
 #ifdef SWITCH_STM_TIME_PROFILE
         stm_profiling_thread_shutdown();
 #endif
-#else  /* !SWITCH_STM */        
+#else  /* !SWITCH_STM */ 
+#ifdef SWITCH_STM_TIME_PROFILE
+        stm_profiling_thread_init();
+#endif       
         global_funcPtr(global_argPtr);
+#ifdef SWITCH_STM_TIME_PROFILE
+        stm_profiling_thread_shutdown();
+#endif
 #endif /* !SWITCH_STM */
         THREAD_BARRIER(global_barrierPtr, threadId); /* wait for end parallel */
         if (threadId == 0) {

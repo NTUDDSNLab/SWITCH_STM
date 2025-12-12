@@ -700,6 +700,11 @@ int stm_set_irrevocable(int serial) _CALLCONV;
 int stm_set_irrevocable_tx(struct stm_tx *tx, int serial) _CALLCONV;
 //@}
 
+#ifdef SWITCH_STM_TIME_PROFILE
+void stm_profiling_thread_init(void) _CALLCONV;
+void stm_profiling_thread_shutdown(void) _CALLCONV;
+#endif
+
 #ifdef __cplusplus
 }
 #endif

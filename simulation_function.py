@@ -9,6 +9,7 @@ except ImportError:
 import os
 import signal
 import psutil
+import re
 
 directories = [
     'stamp-master/bayes',
@@ -55,8 +56,6 @@ def reset_makefile_config_to_suicide():
                                                 .replace('# DEFINES += -USWITCH_STM','DEFINES += -USWITCH_STM') \
                                                 .replace('# DEFINES += -DCONTENTION_INTENSITY','DEFINES += -DCONTENTION_INTENSITY') \
                                                 .replace('# DEFINES += -UCONTENTION_INTENSITY','DEFINES += -UCONTENTION_INTENSITY') \
-                                                .replace('# DEFINES += -DSWITCH_STM_TIME_PROFILE','DEFINES += -DSWITCH_STM_TIME_PROFILE') \
-                                                .replace('# DEFINES += -USWITCH_STM_TIME_PROFILE','DEFINES += -USWITCH_STM_TIME_PROFILE') \
                                                 .replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
                                                 .replace('# DEFINES += -UCM_POLKA','DEFINES += -UCM_POLKA') \
                                                 .replace('# DEFINES += -DSHRINK_ENABLE','DEFINES += -DSHRINK_ENABLE') \
@@ -71,7 +70,6 @@ def reset_makefile_config_to_suicide():
     modified_makefile_content = makefile_content.replace('DEFINES += -DCM=CM_SUICIDE','# DEFINES += -DCM=CM_SUICIDE') \
                                                 .replace('DEFINES += -DSWITCH_STM','# DEFINES += -DSWITCH_STM') \
                                                 .replace('DEFINES += -DCONTENTION_INTENSITY','# DEFINES += -DCONTENTION_INTENSITY') \
-                                                .replace('DEFINES += -DSWITCH_STM_TIME_PROFILE','# DEFINES += -DSWITCH_STM_TIME_PROFILE') \
                                                 .replace('DEFINES += -DCM_POLKA','# DEFINES += -DCM_POLKA') \
                                                 .replace('DEFINES += -DSHRINK_ENABLE','# DEFINES += -DSHRINK_ENABLE') \
                                                 .replace('DEFINES += -DATS_ENABLE','# DEFINES += -DATS_ENABLE')
@@ -177,7 +175,7 @@ def run_tests(log_file="output.stm", threads=16):
     except psutil.NoSuchProcess:
         pass
 
-def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
+def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
     ###############SUICIDE###############
     print("###############SUICIDE###############")
     print("###############SUICIDE###############")
@@ -193,6 +191,21 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
     reset_makefile_config_to_suicide()
     reset_makefile_stm_config_to_suicide()
 
+    # If TP is true ,emable SWITCH_STM time profile
+    if (TP == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_TIME_PROFILE', 'DEFINES += -DSWITCH_STM_TIME_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_TIME_PROFILE', '# DEFINES += -USWITCH_STM_TIME_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 
@@ -204,7 +217,10 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"suicide_{threads}.stm")
+            log_name = f"suicide_{threads}.stm"
+            if TP:
+                log_name = f"suicide_TP_{threads}.stm"
+            log_file = os.path.join(log_path, log_name)
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -213,7 +229,7 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log"):
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of suicide! - Current time: {current_time}")
 
-def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
+def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
     ###############POLKA###############
     print("###############POLKA###############")
     print("###############POLKA###############")
@@ -238,6 +254,21 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
+    # If TP is true ,emable SWITCH_STM time profile
+    if (TP == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_TIME_PROFILE', 'DEFINES += -DSWITCH_STM_TIME_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_TIME_PROFILE', '# DEFINES += -USWITCH_STM_TIME_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 
@@ -249,7 +280,10 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"polka_{threads}.stm")
+            log_name = f"polka_{threads}.stm"
+            if TP:
+                log_name = f"polka_TP_{threads}.stm"
+            log_file = os.path.join(log_path, log_name)
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -258,7 +292,7 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log"):
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of polka! - Current time: {current_time}")
 
-def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
+def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
     ###############ATS#################
     print("#################ATS#################")
     print("#################ATS#################")
@@ -284,6 +318,21 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
+    # If TP is true ,emable SWITCH_STM time profile
+    if (TP == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_TIME_PROFILE', 'DEFINES += -DSWITCH_STM_TIME_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_TIME_PROFILE', '# DEFINES += -USWITCH_STM_TIME_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 
@@ -295,7 +344,10 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"ats_{threads}.stm")
+            log_name = f"ats_{threads}.stm"
+            if TP:
+                log_name = f"ats_TP_{threads}.stm"
+            log_file = os.path.join(log_path, log_name)
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -305,7 +357,7 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log"):
     print(f"Done all the iterations of ats! - Current time: {current_time}")
 
 
-def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log"):
+def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
     ###############SHRINK###############
     print("###############SHRINK###############")
     print("###############SHRINK###############")
@@ -332,6 +384,21 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log"):
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
 
+    # If TP is true ,emable SWITCH_STM time profile
+    if (TP == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_TIME_PROFILE', 'DEFINES += -DSWITCH_STM_TIME_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_TIME_PROFILE', '# DEFINES += -USWITCH_STM_TIME_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+
     #Compile tinySTM
     subprocess.run(['make'],cwd='tinySTM')
 
@@ -350,7 +417,10 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log"):
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
-            log_file = os.path.join(log_path, f"shrink_{threads}.stm")
+            log_name = f"shrink_{threads}.stm"
+            if TP:
+                log_name = f"shrink_TP_{threads}.stm"
+            log_file = os.path.join(log_path, log_name)
             run_tests(log_file=log_file, threads=threads)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
@@ -446,8 +516,8 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
     if (TP == True):
         with open('tinySTM/Makefile', 'r') as f:
             makefile_content = f.read()
-        modified_makefile_content = makefile_content.replace('# DEFINES += -DSWITCH_STM_TIME_PROFILE','DEFINES += -DSWITCH_STM_TIME_PROFILE') \
-                                                    .replace('DEFINES += -USWITCH_STM_TIME_PROFILE','# DEFINES += -USWITCH_STM_TIME_PROFILE')
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_TIME_PROFILE', 'DEFINES += -DSWITCH_STM_TIME_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_TIME_PROFILE', '# DEFINES += -USWITCH_STM_TIME_PROFILE', modified_makefile_content, flags=re.MULTILINE)
         with open('tinySTM/Makefile', 'w') as f:
             f.write(modified_makefile_content)
 

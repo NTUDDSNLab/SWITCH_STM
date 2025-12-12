@@ -83,13 +83,13 @@ print(f"simulation_times = {simulation_times}, threads_list = {threads_list}, lo
 args = parser.parse_args()
 
 if args.suicide:
-    simulate_suicide(simulation_times, threads_list, log_path)
+    simulate_suicide(simulation_times, threads_list, log_path, TP=args.time_profile)
 if args.polka:
-    simulate_polka(simulation_times, threads_list, log_path)
+    simulate_polka(simulation_times, threads_list, log_path, TP=args.time_profile)
 if args.shrink:
-    simulate_shrink(simulation_times, threads_list, log_path)
+    simulate_shrink(simulation_times, threads_list, log_path, TP=args.time_profile)
 if args.ats:
-    simulate_ats(simulation_times, threads_list, log_path)
+    simulate_ats(simulation_times, threads_list, log_path, TP=args.time_profile)
 if args.switch_rnd:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile, log_path=log_path)
 if args.switch_rnd_CI:
