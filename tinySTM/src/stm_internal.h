@@ -29,6 +29,11 @@
 #include <pthread.h>
 #include <string.h>
 #include <stm.h>
+#include <stdbool.h>
+
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+extern __thread bool t_just_switched;
+#endif
 #include "tls.h"
 #include <time.h>
 #include "utils.h"
@@ -1435,6 +1440,9 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
         w_pred->lock = w->lock;
       }
     }
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+      t_just_switched = false;
+#endif
   }
 #endif /* SWITCH_STM */
 

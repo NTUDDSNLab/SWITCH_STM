@@ -23,6 +23,7 @@
  * under the terms of the MIT license.
  */
 
+#include <stdbool.h>
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
@@ -46,7 +47,7 @@ unsigned int switching_count = 0;
 
 #endif /* SWITCH_STM*/
 
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
 __thread struct timespec run_tx_start_time, run_tx_end_time;
 __thread struct timespec switch_start_time, switch_end_time;
 __thread struct timespec stage_start_time, stage_end_time;
@@ -58,6 +59,10 @@ unsigned long long global_abort_time = 0;
 unsigned long long global_wait_time = 0;
 unsigned long long global_switch_time = 0;
 unsigned long long global_other_time = 0;
+// PSCR Globals
+unsigned long long global_switch_tx_count = 0;
+unsigned long long global_commit_after_switch_count = 0;
+
 int active_profiling_threads = 0;
 #endif
 
@@ -166,6 +171,11 @@ __thread unsigned long long breakdown_commit_time = 0;
 __thread unsigned long long breakdown_abort_time = 0;
 __thread unsigned long long breakdown_wait_time = 0;
 __thread unsigned long long breakdown_switch_time = 0;
+// PSCR Thread-Locals
+extern __thread unsigned long long breakdown_switch_tx_count;
+extern __thread unsigned long long breakdown_commit_after_switch_count;
+extern __thread bool t_just_switched;
+
 #endif
 
 #ifdef CONTENTION_INTENSITY
@@ -342,15 +352,24 @@ signal_catcher(int sig)
  * STM FUNCTIONS
  * ################################################################### */
 /* Global profiling summary printer */
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
 void stm_profiling_print_summary(void) {
-    if (global_commit_time > 0 || global_abort_time > 0 || global_other_time > 0) {
-        printf("-----------<< BREAKDOWN >>-----------\n");
+    if (global_commit_time > 0 || global_abort_time > 0 || global_other_time > 0 || global_switch_tx_count > 0) {
+        printf("DEBUG: PSCR Summary called\n");
+        printf("-----------<< PROFILE >>-----------\n");
         printf("Total Commit Time: %llu ms\n", global_commit_time / 1000000);
         printf("Total Abort Time:  %llu ms\n", global_abort_time / 1000000);
         printf("Total Wait Time:   %llu ms\n", global_wait_time / 1000000);
         printf("Total Switch Time: %llu ms\n", global_switch_time / 1000000);
         printf("Total Other Time:  %llu ms\n", global_other_time / 1000000);
+        
+        printf("Total Switch Count: %llu\n", global_switch_tx_count);
+        printf("Total Commit After Switch: %llu\n", global_commit_after_switch_count);
+        double pscr = 0;
+        if (global_switch_tx_count > 0) {
+             pscr = (double)global_commit_after_switch_count / (double)global_switch_tx_count;
+        }
+        printf("PSCR: %f\n", pscr);
     }
 }
 #endif
@@ -425,7 +444,7 @@ stm_init(void)
 #endif /* SIGNAL_HANDLER */
   _tinystm.initialized = 1;
 
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
   atexit(stm_profiling_print_summary);
 #endif
 
@@ -503,7 +522,7 @@ _CALLCONV void
 stm_exit_thread(void)
 {
   TX_GET;
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
 //   printf("Thread %p: Commit Time: %llu, Abort Time: %llu, Wait Time: %llu, Switch Time: %llu\n", (void*)pthread_self(), breakdown_commit_time, breakdown_abort_time, breakdown_wait_time, breakdown_switch_time);
 #endif
   int_stm_exit_thread(tx);
@@ -546,7 +565,16 @@ _CALLCONV int
 stm_commit(void)
 {
   TX_GET;
-  return int_stm_commit(tx);
+  int ret = int_stm_commit(tx);
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+#ifdef SWITCH_STM
+  if (ret == 1 && t_just_switched) {
+       breakdown_commit_after_switch_count++;
+       t_just_switched = false;
+  }
+#endif
+#endif
+  return ret;
 }
 
 _CALLCONV int
@@ -1234,13 +1262,15 @@ stm_inc_clock(void)
   FETCH_INC_CLOCK;
 }
 
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
 void stm_profiling_thread_init(void) {
     clock_gettime(CLOCK_MONOTONIC, &profiling_start_time);
     breakdown_commit_time = 0;
     breakdown_abort_time = 0;
     breakdown_wait_time = 0;
     breakdown_switch_time = 0;
+    breakdown_switch_tx_count = 0;
+    breakdown_commit_after_switch_count = 0;
     // Atomically increment active thread count
     __sync_fetch_and_add(&active_profiling_threads, 1);
 }
@@ -1275,6 +1305,9 @@ void stm_profiling_thread_shutdown(void) {
     __sync_fetch_and_add(&global_wait_time, breakdown_wait_time);
     __sync_fetch_and_add(&global_switch_time, breakdown_switch_time);
     __sync_fetch_and_add(&global_other_time, other_time);
+
+    __sync_fetch_and_add(&global_switch_tx_count, breakdown_switch_tx_count);
+    __sync_fetch_and_add(&global_commit_after_switch_count, breakdown_commit_after_switch_count);
 
     // Atomically decrement active thread count
     __sync_sub_and_fetch(&active_profiling_threads, 1);

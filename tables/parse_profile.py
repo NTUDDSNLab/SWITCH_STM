@@ -115,12 +115,14 @@ def parse_log_file(filepath):
                 wait = 0
                 switch = 0
                 other = 0
+                switch_count = 0
+                commit_after_switch = 0
+                pscr = 0.0
                 
                 # Look ahead for the next lines
-                # We expect the next 5 lines to contain the data, but let's be robust
-                # Key-Value parsing
+                # We expect the next 8 lines to contain the data (5 time metrics + 3 PSCR metrics)
                 
-                for _ in range(5):
+                for _ in range(8):
                     i += 1
                     if i >= len(lines): break
                     b_line = lines[i].strip()
@@ -134,6 +136,12 @@ def parse_log_file(filepath):
                         switch = int(b_line.split(":")[1].strip().split()[0])
                     elif "Total Other Time:" in b_line:
                         other = int(b_line.split(":")[1].strip().split()[0])
+                    elif "Total Switch Count:" in b_line:
+                        switch_count = int(b_line.split(":")[1].strip().split()[0])
+                    elif "Total Commit After Switch:" in b_line:
+                        commit_after_switch = int(b_line.split(":")[1].strip().split()[0])
+                    elif "PSCR:" in b_line:
+                        pscr = float(b_line.split(":")[1].strip())
                 
                 if current_benchmark:
                     entry = {
@@ -144,7 +152,10 @@ def parse_log_file(filepath):
                         'Abort': abort,
                         'Wait': wait,
                         'Switch': switch,
-                        'Other': other
+                        'Other': other,
+                        'SwitchCount': switch_count,
+                        'CommitAfterSwitch': commit_after_switch,
+                        'PSCR': pscr
                     }
                     data.append(entry)
                     
@@ -190,7 +201,8 @@ def main():
         key = (entry['Benchmark'], entry['Configuration'], entry['Threads'])
         if key not in aggregated:
             aggregated[key] = {
-                'Commit': [], 'Abort': [], 'Wait': [], 'Switch': [], 'Other': []
+                'Commit': [], 'Abort': [], 'Wait': [], 'Switch': [], 'Other': [],
+                'SwitchCount': [], 'CommitAfterSwitch': [], 'PSCR': []
             }
         
         aggregated[key]['Commit'].append(entry['Commit'])
@@ -198,6 +210,9 @@ def main():
         aggregated[key]['Wait'].append(entry['Wait'])
         aggregated[key]['Switch'].append(entry['Switch'])
         aggregated[key]['Other'].append(entry['Other'])
+        aggregated[key]['SwitchCount'].append(entry['SwitchCount'])
+        aggregated[key]['CommitAfterSwitch'].append(entry['CommitAfterSwitch'])
+        aggregated[key]['PSCR'].append(entry['PSCR'])
         
     # Prepare CSV rows
     csv_rows = []
@@ -208,6 +223,9 @@ def main():
         "Avg Wait (ms)", "Std Wait", 
         "Avg Switch (ms)", "Std Switch", 
         "Avg Other (ms)", "Std Other", 
+        "Avg Switch Count", "Std Switch Count",
+        "Avg Commit After Switch", "Std Commit After Switch",
+        "Avg PSCR", "Std PSCR",
         "Samples"
     ]
     
@@ -218,12 +236,17 @@ def main():
         
         samples = len(metrics['Commit'])
         
-        for metric_name in ['Commit', 'Abort', 'Wait', 'Switch', 'Other']:
+        for metric_name in ['Commit', 'Abort', 'Wait', 'Switch', 'Other', 'SwitchCount', 'CommitAfterSwitch', 'PSCR']:
             values = metrics[metric_name]
             avg = statistics.mean(values)
             std = statistics.stdev(values) if len(values) > 1 else 0.0
-            row.append(f"{avg:.2f}")
-            row.append(f"{std:.2f}")
+            
+            if metric_name in ['PSCR']:
+                 row.append(f"{avg:.6f}")
+                 row.append(f"{std:.6f}")
+            else:
+                 row.append(f"{avg:.2f}")
+                 row.append(f"{std:.2f}")
             
         row.append(samples)
         csv_rows.append(row)

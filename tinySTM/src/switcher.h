@@ -24,9 +24,18 @@ extern __thread struct timespec switch_start_time, switch_end_time;
 extern __thread struct timespec stage_start_time, stage_end_time;
 
 extern __thread unsigned long long breakdown_switch_time;
+
+// PSCR (Post-Switch Commit Rate) Metric
+// Moved definitions outside TIME_PROFILE block (see below)
+
 void stm_profiling_thread_init(void);
 void stm_profiling_thread_shutdown(void);
 #endif /* SWITCH_STM_TIME_PROFILE */
+
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+extern __thread unsigned long long breakdown_switch_tx_count;
+extern __thread bool t_just_switched;
+#endif
 extern bool thread_barrier_exist;
 extern unsigned int switching_count;
 
@@ -120,6 +129,11 @@ switcher_run(coroutine_array_t** ca)
       cur_cor->last_resumed_time = run_tx_start_time;
        // printf("DEBUG: Switcher set last_resumed for cor %p to {%ld, %ld}\n", (void*)cur_cor, run_tx_start_time.tv_sec, run_tx_start_time.tv_nsec);
       #endif /* SWITCH_STM_TIME_PROFILE */
+      
+      #if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+      breakdown_switch_tx_count++;
+      t_just_switched = true;
+      #endif 
       aco_resume(cur_cor->co);
       #ifdef SWITCH_STM_TIME_PROFILE  
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);
@@ -186,7 +200,16 @@ switcher_run(coroutine_array_t** ca)
       breakdown_switch_time += (unsigned long long)diff;
       cur_cor->last_resumed_time = run_tx_start_time;
        // printf("DEBUG: Switcher set last_resumed for cor %p to {%ld, %ld}\n", (void*)cur_cor, run_tx_start_time.tv_sec, run_tx_start_time.tv_nsec);
-      #endif /* SWITCH_STM_TIME_PROFILE */ 
+       #endif
+      #if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+      breakdown_switch_tx_count++;
+      t_just_switched = true;  
+      #endif
+      /*
+      if (cur_cor) {
+         cur_cor->just_switched = true;
+      }
+      */
       aco_resume(cur_cor->co);
       #ifdef SWITCH_STM_TIME_PROFILE
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);

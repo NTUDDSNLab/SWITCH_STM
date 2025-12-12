@@ -2,52 +2,38 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sys
 import os
+import argparse
 
-def print_help():
-    help_text = """
-Usage: python3 plot_csv.py <csv_file> [config1 config2 ...]
-
-Description:
+def main():
+    parser = argparse.ArgumentParser(
+        description="""Description:
     This script generates execution time plots from a CSV file containing benchmark results.
-    It creates a 2x5 grid of plots, one for each benchmark, showing execution time vs threads.
-
-Arguments:
-    <csv_file>      Path to the CSV file containing the data.
-                    The CSV must have the following columns:
-                    - 'Benchmark'
-                    - 'Configuration'
-                    - 'Threads'
-                    - 'Avg Execution Time (s)'
-    
-    [config1 ...]   Optional list of configurations to plot.
-                    If provided, only these configurations will be included in the plots.
-                    If omitted, all configurations found in the CSV will be plotted.
-
-Output:
-    Saves the plot as 'execution_time_results.png' in the current directory.
-
-Examples:
+    It creates a 2x5 grid of plots, one for each benchmark, showing execution time vs threads.""",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""Examples:
     # Plot all configurations from data.csv
     python3 plot/plot_csv.py data.csv
 
     # Plot only 'suicide' and 'switch_rnd' configurations
     python3 plot/plot_csv.py data.csv suicide switch_rnd
-"""
-    print(help_text)
+    
+    # Save to custom file
+    python3 plot/plot_csv.py data.csv -o my_plot.png"""
+    )
 
-def main():
-    if len(sys.argv) < 2 or sys.argv[1] in ['-h', '--help', 'help']:
-        print_help()
-        sys.exit(0 if len(sys.argv) > 1 else 1)
+    parser.add_argument('csv_file', help="Path to the CSV file containing the data.")
+    parser.add_argument('configs', nargs='*', help="Optional list of configurations to plot.")
+    parser.add_argument('-o', '--output', default='execution_time_results.png', help="Output filename.")
+    parser.add_argument('-m', '--metric', choices=['time', 'abort'], default='time', help="Metric to plot: 'time' (Execution Time) or 'abort' (Abort Ratio). Default is 'time'.")
 
-    csv_file = sys.argv[1]
+    args = parser.parse_args()
+
+    csv_file = args.csv_file
     if not os.path.exists(csv_file):
         print(f"Error: File '{csv_file}' not found.")
         sys.exit(1)
 
-    target_configs = []
-    if len(sys.argv) > 2:
-        target_configs = sys.argv[2:]
+    target_configs = args.configs
 
     try:
         df = pd.read_csv(csv_file)
@@ -59,7 +45,12 @@ def main():
     df.columns = df.columns.str.strip()
 
     # Required columns
-    required_columns = ['Benchmark', 'Configuration', 'Threads', 'Avg Execution Time (s)']
+    common_columns = ['Benchmark', 'Configuration', 'Threads']
+    if args.metric == 'time':
+        required_columns = common_columns + ['Avg Execution Time (s)']
+    elif args.metric == 'abort':
+        required_columns = common_columns + ['Avg Commits', 'Avg Aborts']
+
     for col in required_columns:
         if col not in df.columns:
             print(f"Error: Missing column '{col}' in CSV.")
@@ -105,9 +96,16 @@ def main():
                 threads = config_data['Threads']
                 # Map threads to indices for equidistant plotting
                 x_vals = threads.map(thread_map)
-                exec_time_ms = config_data['Avg Execution Time (s)'] * 1000
                 
-                line, = ax.plot(x_vals, exec_time_ms, marker='o', label=config)
+                if args.metric == 'time':
+                    y_vals = config_data['Avg Execution Time (s)'] * 1000
+                elif args.metric == 'abort':
+                    commits = config_data['Avg Commits']
+                    aborts = config_data['Avg Aborts']
+                    # Calculate Abort Ratio: #abort / (#abort + #commit)
+                    y_vals = aborts / (aborts + commits)
+                
+                line, = ax.plot(x_vals, y_vals, marker='o', label=config)
                 
                 if config not in seen_labels:
                     handles.append(line)
@@ -128,11 +126,15 @@ def main():
 
     # Unified Axis Labels
     fig.text(0.5, 0.01, 'Threads', ha='center', va='center', fontsize=24)
-    fig.text(0.005, 0.5, 'Execution Time (ms)', ha='center', va='center', rotation='vertical', fontsize=24)
+    if args.metric == 'time':
+        y_label = 'Execution Time (ms)'
+    elif args.metric == 'abort':
+        y_label = 'Abort Ratio'
+    fig.text(0.005, 0.5, y_label, ha='center', va='center', rotation='vertical', fontsize=24)
 
     plt.tight_layout(rect=[0.02, 0.03, 1, 0.95]) # Adjust rect to make room for labels
     
-    output_file = 'execution_time_results.png'
+    output_file = args.output
     plt.savefig(output_file, bbox_inches='tight')
     print(f"Plot saved to '{output_file}'")
 

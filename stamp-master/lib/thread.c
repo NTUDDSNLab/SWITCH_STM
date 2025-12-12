@@ -79,7 +79,7 @@
 #include "aco.h"
 #include "switcher.h"
 #endif /* SWITCH_STM */
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
 #include <stm.h>
 #endif
 
@@ -130,20 +130,20 @@ threadWait (void* argPtr)
             break;
         }
 #ifdef SWITCH_STM
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
         stm_profiling_thread_init();
 #endif
         switcher_init(&cor_array,thread_run);
         switcher_run(&cor_array);
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
         stm_profiling_thread_shutdown();
 #endif
 #else  /* !SWITCH_STM */ 
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
         stm_profiling_thread_init();
 #endif       
         global_funcPtr(global_argPtr);
-#ifdef SWITCH_STM_TIME_PROFILE
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
         stm_profiling_thread_shutdown();
 #endif
 #endif /* !SWITCH_STM */

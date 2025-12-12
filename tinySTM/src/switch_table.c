@@ -3,6 +3,12 @@
 /* ################################################################### *
  * SWITCH_TABLE INITIALIZATION
  * ################################################################### * */
+#if defined(SWITCH_STM_TIME_PROFILE) || defined(SWITCH_STM_METRIC_PROFILE)
+__thread bool t_just_switched = false;
+__thread unsigned long long breakdown_switch_tx_count = 0;
+__thread unsigned long long breakdown_commit_after_switch_count = 0;
+#endif
+
 coroutine_array_t*
 coroutine_array_create(void)
 {   

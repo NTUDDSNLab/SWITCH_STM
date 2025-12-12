@@ -436,7 +436,7 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='seq', CI=True, TP=False, log_path="./log"):
+def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='seq', CI=True, TP=False, PROFILE=False, log_path="./log"):
     ###############SWITCH_STM###############
     print("###############SWITCH_STM###############")
     print("###############SWITCH_STM###############")
@@ -526,8 +526,25 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
         modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_TIME_PROFILE','CFLAGS	 += -DSWITCH_STM_TIME_PROFILE')
         with open('stamp-master/common/Makefile.stm', 'w') as f:
             f.write(modified_makefile_content)
+
+    # If PROFILE is true, enable SWITCH_STM_METRIC_PROFILE
+    if (PROFILE == True):
+        with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_METRIC_PROFILE', 'DEFINES += -DSWITCH_STM_METRIC_PROFILE', makefile_content, flags=re.MULTILINE)
+        modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_METRIC_PROFILE', '# DEFINES += -USWITCH_STM_METRIC_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+        with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+        with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('# CFLAGS	 += -DSWITCH_STM_METRIC_PROFILE','CFLAGS	 += -DSWITCH_STM_METRIC_PROFILE')
+        with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
+
             
     #Compile tinySTM
+    subprocess.run(['make', 'clean'],cwd='tinySTM')
     subprocess.run(['make'],cwd='tinySTM')
 
     # Modify the configuration of STAMP to SWITCH_STM
@@ -565,7 +582,11 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
     elif (schedule_policy == 'laf' and CI == True):
         switch_log_name = 'switch_laf_CI'
     else:
-        switch_log_name = 'some_wierd_switch_mode' 
+        switch_log_name = 'some_wierd_switch_mode'
+    
+    if PROFILE:
+        switch_log_name += '_Profile'
+ 
     #Run the test
     for i in range(simulation_times):
         for threads in threads_list:
@@ -577,6 +598,21 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
     #Print current time
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of {switch_log_name}! - Current time: {current_time}")
+
+    if (PROFILE == True):
+         with open('tinySTM/Makefile', 'r') as f:
+            makefile_content = f.read()
+            # Disable definition
+         modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-DSWITCH_STM_METRIC_PROFILE', '# DEFINES += -DSWITCH_STM_METRIC_PROFILE', makefile_content, flags=re.MULTILINE)
+         modified_makefile_content = re.sub(r'^\s*#?\s*DEFINES\s*\+=\s*-USWITCH_STM_METRIC_PROFILE', 'DEFINES += -USWITCH_STM_METRIC_PROFILE', modified_makefile_content, flags=re.MULTILINE)
+         with open('tinySTM/Makefile', 'w') as f:
+            f.write(modified_makefile_content)
+
+         with open('stamp-master/common/Makefile.stm', 'r') as f:
+            makefile_content = f.read()
+         modified_makefile_content = makefile_content.replace('CFLAGS	 += -DSWITCH_STM_METRIC_PROFILE', '# CFLAGS	 += -DSWITCH_STM_METRIC_PROFILE')
+         with open('stamp-master/common/Makefile.stm', 'w') as f:
+            f.write(modified_makefile_content)
 
     # Undo the modification of configuration of STAMP
     with open('stamp-master/common/Makefile.stm', 'r') as f:
