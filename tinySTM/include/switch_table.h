@@ -8,6 +8,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <time.h>
 #include "aco.h"
 #include "param.h"
 
@@ -28,6 +29,10 @@ typedef struct coroutine {
     int status;
     int abort_count;
     bool unswitchable;
+#ifdef SWITCH_STM_TIME_PROFILE
+    struct timespec last_resumed_time;
+    unsigned long long acc_time;
+#endif /* SWITCH_STM_TIME_PROFILE */
     void (*coro_func)(void);
     void *coro_arg;
 } coroutine_t;

@@ -19,18 +19,22 @@ extern __thread unsigned long stage1_time_sum;
 extern __thread unsigned long stage2_time_sum;
 extern __thread unsigned long do_switch_count;
 extern __thread unsigned long no_switch_count;
-__thread struct timespec run_tx_start_time, run_tx_end_time;
-__thread struct timespec switch_start_time, switch_end_time;
-__thread struct timespec stage_start_time, stage_end_time;
+extern __thread struct timespec run_tx_start_time, run_tx_end_time;
+extern __thread struct timespec switch_start_time, switch_end_time;
+extern __thread struct timespec stage_start_time, stage_end_time;
+
+extern __thread unsigned long long breakdown_switch_time;
+void stm_profiling_thread_init(void);
+void stm_profiling_thread_shutdown(void);
 #endif /* SWITCH_STM_TIME_PROFILE */
-bool thread_barrier_exist = false;
-unsigned int switching_count = 0;
+extern bool thread_barrier_exist;
+extern unsigned int switching_count;
 
 #ifdef CONTENTION_INTENSITY
 extern __thread float contention_intensity;
 #endif /* CONTENTION_INTENSITY */
 
-void
+static inline void
 switcher_init(coroutine_array_t** ca, void (*funcPtr)(void))
 {
       srand(clock());
@@ -43,7 +47,7 @@ switcher_init(coroutine_array_t** ca, void (*funcPtr)(void))
       };
 }
 
-unsigned int
+static inline unsigned int
 switcher_decide(coroutine_array_t* ca, int cur_decision)
 {  
    static int decision = 0;
@@ -89,11 +93,12 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
    return decision;
 }
 
-void
+static inline void
 switcher_run(coroutine_array_t** ca)
 {
    #ifdef SWITCH_STM_TIME_PROFILE 
    clock_gettime(CLOCK_MONOTONIC, &switch_start_time);
+   struct timespec last_chk = switch_start_time;
    long run_tx_time_round = 0;
    #endif /* SWITCH_STM_TIME_PROFILE */
    //Initialize a counter to count how many cor is done
@@ -110,10 +115,15 @@ switcher_run(coroutine_array_t** ca)
    while(1){
       #ifdef SWITCH_STM_TIME_PROFILE 
       clock_gettime(CLOCK_MONOTONIC, &run_tx_start_time);
+      long long diff = (long long)(run_tx_start_time.tv_sec - last_chk.tv_sec) * 1000000000LL + (run_tx_start_time.tv_nsec - last_chk.tv_nsec);
+      breakdown_switch_time += (unsigned long long)diff;
+      cur_cor->last_resumed_time = run_tx_start_time;
+       // printf("DEBUG: Switcher set last_resumed for cor %p to {%ld, %ld}\n", (void*)cur_cor, run_tx_start_time.tv_sec, run_tx_start_time.tv_nsec);
       #endif /* SWITCH_STM_TIME_PROFILE */
       aco_resume(cur_cor->co);
-     #ifdef SWITCH_STM_TIME_PROFILE  
+      #ifdef SWITCH_STM_TIME_PROFILE  
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);
+      last_chk = run_tx_end_time;
       run_tx_time_round = run_tx_time_round + (run_tx_end_time.tv_sec - run_tx_start_time.tv_sec) * 1000000000 + (run_tx_end_time.tv_nsec - run_tx_start_time.tv_nsec); 
       #endif /* SWITCH_STM_TIME_PROFILE */
       if(cur_cor->co->is_end == 1){
@@ -172,10 +182,15 @@ switcher_run(coroutine_array_t** ca)
       }
       #ifdef SWITCH_STM_TIME_PROFILE
       clock_gettime(CLOCK_MONOTONIC, &run_tx_start_time);
+      long long diff = (long long)(run_tx_start_time.tv_sec - last_chk.tv_sec) * 1000000000LL + (run_tx_start_time.tv_nsec - last_chk.tv_nsec);
+      breakdown_switch_time += (unsigned long long)diff;
+      cur_cor->last_resumed_time = run_tx_start_time;
+       // printf("DEBUG: Switcher set last_resumed for cor %p to {%ld, %ld}\n", (void*)cur_cor, run_tx_start_time.tv_sec, run_tx_start_time.tv_nsec);
       #endif /* SWITCH_STM_TIME_PROFILE */ 
       aco_resume(cur_cor->co);
       #ifdef SWITCH_STM_TIME_PROFILE
       clock_gettime(CLOCK_MONOTONIC, &run_tx_end_time);
+      last_chk = run_tx_end_time;
       run_tx_time_round = run_tx_time_round + (run_tx_end_time.tv_sec - run_tx_start_time.tv_sec) * 1000000000 + (run_tx_end_time.tv_nsec - run_tx_start_time.tv_nsec); 
       #endif /* SWITCH_STM_TIME_PROFILE */ 
       //if cor is finished, add the counter
@@ -194,11 +209,11 @@ switcher_run(coroutine_array_t** ca)
    //caculate the time spent on switch
    #ifdef SWITCH_STM_TIME_PROFILE
    clock_gettime(CLOCK_MONOTONIC, &switch_end_time);
-   switch_time_sum = switch_time_sum 
-                     +(switch_end_time.tv_sec - switch_start_time.tv_sec) * 1000000000 + (switch_end_time.tv_nsec - switch_start_time.tv_nsec)
-                     -run_tx_time_round;
+   long long diff = (long long)(switch_end_time.tv_sec - last_chk.tv_sec) * 1000000000LL + (switch_end_time.tv_nsec - last_chk.tv_nsec);
+   breakdown_switch_time += (unsigned long long)diff;
+   // switch_time_sum logic removed as redundant for breakdown, but kept variable if needed elsewhere
+   switch_time_sum = 0; // or unused
    run_tx_time_sum = run_tx_time_sum + run_tx_time_round;
    #endif /* SWITCH_STM_TIME_PROFILE */ 
 }
-
 #endif // _SWITCHER_H_

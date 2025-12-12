@@ -59,6 +59,7 @@ parser.add_argument('-switch_laf', action='store_true', help='[Configuration] Ru
 parser.add_argument('-switch_laf_CI', action='store_true', help='[Configuration] Run switch_laf_CI simulation')
 parser.add_argument('-switch_laf_CI_TP', action='store_true', help='[Configuration] Run switch_laf_CI_TP simulation')
 parser.add_argument('-switch_laf_TP', action='store_true', help='[Configuration] Run switch_laf_TP simulation')
+parser.add_argument('-time_profile', action='store_true', help='[Configuration] Enable SWITCH_STM time profile')
 
 
 
@@ -90,19 +91,19 @@ if args.shrink:
 if args.ats:
     simulate_ats(simulation_times, threads_list, log_path)
 if args.switch_rnd:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=False, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile, log_path=log_path)
 if args.switch_rnd_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=False, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=args.time_profile, log_path=log_path)
 if args.switch_rnd_CI_TP:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=True, log_path=log_path)
 if args.switch_rnd_TP:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=True, log_path=log_path)
 if args.switch_seq:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=False, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=args.time_profile, log_path=log_path)
 if args.switch_laf:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=False, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=args.time_profile, log_path=log_path)
 if args.switch_laf_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=False, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=args.time_profile, log_path=log_path)
 if args.switch_laf_CI_TP:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, log_path=log_path)
 if args.switch_laf_TP:

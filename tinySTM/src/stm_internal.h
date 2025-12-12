@@ -30,6 +30,7 @@
 #include <string.h>
 #include <stm.h>
 #include "tls.h"
+#include <time.h>
 #include "utils.h"
 #include "atomic.h"
 #include "gc.h"
@@ -392,6 +393,17 @@ typedef struct cb_entry {               /* Callback entry */
   void *arg;                            /* Argument to be passed to function */
 } cb_entry_t;
 
+typedef struct stm_tx stm_tx_t;
+
+#ifdef SWITCH_STM_TIME_PROFILE
+extern unsigned long long global_commit_time;
+extern unsigned long long global_abort_time;
+extern unsigned long long global_wait_time;
+extern unsigned long long global_switch_time;
+extern unsigned long long global_other_time;
+extern int active_profiling_threads;
+#endif /* SWITCH_STM_TIME_PROFILE */
+
 typedef struct stm_tx {                 /* Transaction descriptor */
   JMP_BUF env;                          /* Environment for setjmp/longjmp */
   stm_tx_attr_t attr;                   /* Transaction attributes (user-specified) */
@@ -461,6 +473,10 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   pred_set_t pred_r_set;                /* predicted Read set */
   pred_set_t pred_w_set;                /* predicted Write set */
 #endif /* SWITCH_STM */
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec start_time;
+  unsigned long long current_wait_time;
+#endif /* SWITCH_STM_TIME_PROFILE */
 } stm_tx_t;
 
 /* This structure should be ordered by hot and cold variables */
@@ -526,6 +542,14 @@ extern __thread float contention_intensity;
 #endif /* CONTENTION_INTENSITY */
 
 # endif /* SWITCH_STM */
+
+#ifdef SWITCH_STM_TIME_PROFILE
+extern __thread unsigned long long breakdown_commit_time;
+extern __thread unsigned long long breakdown_abort_time;
+extern __thread unsigned long long breakdown_wait_time;
+extern __thread unsigned long long breakdown_switch_time;
+extern __thread struct timespec profiling_start_time;
+#endif /* SWITCH_STM_TIME_PROFILE */
 
 #ifdef TM_STATISTICS3
 extern __thread long num_aborted;
@@ -1202,7 +1226,16 @@ int_stm_prepare(stm_tx_t *tx)
             _tinystm.wait_count = _tinystm.wait_count + 1;
             pthread_mutex_unlock(&_tinystm.wait_count_mutex);
             /* lock shrink_mutex */
+#ifdef SWITCH_STM_TIME_PROFILE
+            struct timespec w_start, w_end;
+            clock_gettime(CLOCK_MONOTONIC, &w_start);
+#endif
             pthread_mutex_lock(&_tinystm.shrink_mutex);
+#ifdef SWITCH_STM_TIME_PROFILE
+            clock_gettime(CLOCK_MONOTONIC, &w_end);
+            unsigned long long w_dur = (unsigned long long)((w_end.tv_sec - w_start.tv_sec) * 1000000000ULL + (w_end.tv_nsec - w_start.tv_nsec));
+            breakdown_wait_time += w_dur;
+#endif
             _tinystm.owned_thread_id = pthread_self();
             break;
           }
@@ -1221,7 +1254,16 @@ int_stm_prepare(stm_tx_t *tx)
               _tinystm.wait_count = _tinystm.wait_count + 1;
               pthread_mutex_unlock(&_tinystm.wait_count_mutex);
               /* lock shrink_mutex */
+#ifdef SWITCH_STM_TIME_PROFILE
+            struct timespec w_start, w_end;
+            clock_gettime(CLOCK_MONOTONIC, &w_start);
+#endif
               pthread_mutex_lock(&_tinystm.shrink_mutex);
+#ifdef SWITCH_STM_TIME_PROFILE
+            clock_gettime(CLOCK_MONOTONIC, &w_end);
+            unsigned long long w_dur = (unsigned long long)((w_end.tv_sec - w_start.tv_sec) * 1000000000ULL + (w_end.tv_nsec - w_start.tv_nsec));
+            breakdown_wait_time += w_dur;
+#endif
               _tinystm.owned_thread_id = pthread_self();
               break;
             } 
@@ -1270,7 +1312,19 @@ int_stm_prepare(stm_tx_t *tx)
 
     if (cur_cor->unswitchable == 1){
       /* transfer control to switcher */
+#ifdef SWITCH_STM_TIME_PROFILE
+      if (cur_cor) {
+        struct timespec t_yield_end;
+        clock_gettime(CLOCK_MONOTONIC, &t_yield_end);
+        long long dt_yield = (long long)(t_yield_end.tv_sec - cur_cor->last_resumed_time.tv_sec) * 1000000000LL + (t_yield_end.tv_nsec - cur_cor->last_resumed_time.tv_nsec);
+        cur_cor->acc_time += (unsigned long long)dt_yield;
+        cur_cor->last_resumed_time = t_yield_end;
+      }
+#endif /* SWITCH_STM_TIME_PROFILE */
       aco_yield();
+#ifdef SWITCH_STM_TIME_PROFILE
+      if (cur_cor) clock_gettime(CLOCK_MONOTONIC, &cur_cor->last_resumed_time);
+#endif
       /* start again */
       goto restart;
     }
@@ -1279,6 +1333,16 @@ int_stm_prepare(stm_tx_t *tx)
     tx->pred_w_set.nb_entries = 0;
   }
 #endif /* SWITCH_STM */ 
+
+#ifdef SWITCH_STM_TIME_PROFILE
+    clock_gettime(CLOCK_MONOTONIC, &tx->start_time);
+#ifdef SWITCH_STM
+    if (cur_cor) {
+      cur_cor->acc_time = 0;
+      cur_cor->last_resumed_time = tx->start_time;
+    }
+#endif
+#endif
 }
 
 /*
@@ -1440,24 +1504,62 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
       _tinystm.abort_cb[cb].f(_tinystm.abort_cb[cb].arg);
   }
 
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_ab_end;
+  clock_gettime(CLOCK_MONOTONIC, &t_ab_end);
+  unsigned long long ab_dur = 0;
+#ifdef SWITCH_STM
+  if (cur_cor) {
+    unsigned long long dt = (unsigned long long)((t_ab_end.tv_sec - cur_cor->last_resumed_time.tv_sec) * 1000000000ULL + (t_ab_end.tv_nsec - cur_cor->last_resumed_time.tv_nsec));
+    cur_cor->acc_time += dt;
+    cur_cor->last_resumed_time = t_ab_end;
+    ab_dur = cur_cor->acc_time;
+  }
+#else
+  ab_dur = (unsigned long long)((t_ab_end.tv_sec - tx->start_time.tv_sec) * 1000000000ULL + (t_ab_end.tv_nsec - tx->start_time.tv_nsec));
+#endif
+  breakdown_abort_time += ab_dur;
+#endif /* SWITCH_STM_TIME_PROFILE */
+
 #if CM == CM_BACKOFF
   /* Simple RNG (good enough for backoff) */
   tx->seed ^= (tx->seed << 17);
   tx->seed ^= (tx->seed >> 13);
   tx->seed ^= (tx->seed << 5);
   wait = tx->seed % tx->backoff;
+#ifdef SWITCH_STM_TIME_PROFILE
+  clock_gettime(CLOCK_MONOTONIC, &t_ab_end); // reuse t_ab_end as start
+#endif
   for (j = 0; j < wait; j++) {
     /* Do nothing */
   }
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_back_end;
+  clock_gettime(CLOCK_MONOTONIC, &t_back_end);
+  unsigned long long wait_dur = (unsigned long long)((t_back_end.tv_sec - t_ab_end.tv_sec) * 1000000000ULL + (t_back_end.tv_nsec - t_ab_end.tv_nsec));
+  breakdown_wait_time += wait_dur;
+#endif
+
   if (tx->backoff < MAX_BACKOFF)
     tx->backoff <<= 1;
 #endif /* CM == CM_BACKOFF */
 
 #ifdef CM_POLKA
   volatile int j;
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_polka_start;
+  clock_gettime(CLOCK_MONOTONIC, &t_polka_start);
+#endif
   for (j = 0; j < tx->polka_backoff; j++) {
     // Do nothing
   }
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_polka_end;
+  clock_gettime(CLOCK_MONOTONIC, &t_polka_end);
+  unsigned long long polka_dur = (unsigned long long)((t_polka_end.tv_sec - t_polka_start.tv_sec) * 1000000000ULL + (t_polka_end.tv_nsec - t_polka_start.tv_nsec));
+  breakdown_wait_time += polka_dur;
+#endif
+
 #endif /* CM_POLKA */
 
 #if CM == CM_DELAY || CM == CM_MODULAR
@@ -1465,11 +1567,22 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   /* Wait until contented lock is free */
   if (tx->c_lock != NULL) {
     /* Busy waiting (yielding is expensive) */
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_busy_start;
+  clock_gettime(CLOCK_MONOTONIC, &t_busy_start);
+#endif
     while (LOCK_GET_OWNED(ATOMIC_LOAD(tx->c_lock))) {
 # ifdef WAIT_YIELD
       sched_yield();
 # endif /* WAIT_YIELD */
     }
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_busy_end;
+  clock_gettime(CLOCK_MONOTONIC, &t_busy_end);
+  unsigned long long busy_dur = (unsigned long long)((t_busy_end.tv_sec - t_busy_start.tv_sec) * 1000000000ULL + (t_busy_end.tv_nsec - t_busy_start.tv_nsec));
+  breakdown_wait_time += busy_dur;
+#endif
+
     tx->c_lock = NULL;
   }
   else{
@@ -1522,7 +1635,18 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 
   /* transfer control to switcher */
   if (thread_barrier_exist == false){
+#ifdef SWITCH_STM_TIME_PROFILE
+    if (cur_cor) {
+      struct timespec t_yield_end;
+      clock_gettime(CLOCK_MONOTONIC, &t_yield_end);
+      long long dt_yield = (long long)(t_yield_end.tv_sec - cur_cor->last_resumed_time.tv_sec) * 1000000000LL + (t_yield_end.tv_nsec - cur_cor->last_resumed_time.tv_nsec);
+      cur_cor->acc_time += (unsigned long long)dt_yield;
+    }
+#endif
     aco_yield();
+#ifdef SWITCH_STM_TIME_PROFILE
+    if (cur_cor) clock_gettime(CLOCK_MONOTONIC, &cur_cor->last_resumed_time);
+#endif
   }
 
 #endif /* SWITCH_STM */
@@ -1699,6 +1823,7 @@ int_stm_init_thread(void)
 #endif /* SWITCH_STM */
   /* Nesting level */
   tx->nesting = 0;
+
   /* Transaction-specific data */
   memset(tx->data, 0, MAX_SPECIFIC * sizeof(void *));
 #ifdef CONFLICT_TRACKING
@@ -1753,6 +1878,12 @@ int_stm_init_thread(void)
 #endif /* CM_POLKA */
   /* Store as thread-local data */
   tls_set_tx(tx);
+
+
+/*
+ *
+ */
+
   stm_quiesce_enter_thread(tx);
 
   /* Callbacks */
@@ -1846,7 +1977,16 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
       struct timeval wst;
       gettimeofday(&wst, NULL);
     #endif
+#ifdef SWITCH_STM_TIME_PROFILE
+        struct timespec t_ats_start;
+        clock_gettime(CLOCK_MONOTONIC, &t_ats_start);
+#endif
         pthread_mutex_lock(&_tinystm.queue_lock);
+#ifdef SWITCH_STM_TIME_PROFILE
+        struct timespec t_ats_end;
+        clock_gettime(CLOCK_MONOTONIC, &t_ats_end);
+        breakdown_wait_time += (unsigned long long)((t_ats_end.tv_sec - t_ats_start.tv_sec) * 1000000000ULL + (t_ats_end.tv_nsec - t_ats_start.tv_nsec));
+#endif
         tx->mutex_held = 1;
     #ifdef PROFILE_TL
       struct timeval wet;
@@ -1880,6 +2020,16 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
     for (cb = 0; cb < _tinystm.nb_start_cb; cb++)
       _tinystm.start_cb[cb].f(_tinystm.start_cb[cb].arg);
   }
+
+#ifdef SWITCH_STM
+#ifdef SWITCH_STM_TIME_PROFILE
+  if (cur_cor) {
+      cur_cor->acc_time = 0;
+      /* Initialize last_resumed_time to now so that first yield/commit/abort delta is correct relative to start */
+      clock_gettime(CLOCK_MONOTONIC, &cur_cor->last_resumed_time);
+  }
+#endif
+#endif
 
   return &tx->env;
 }
@@ -1936,6 +2086,23 @@ int_stm_commit(stm_tx_t *tx)
   else
     stm_wbetl_commit(tx);
 #endif /* DESIGN == MODULAR */
+
+#ifdef SWITCH_STM_TIME_PROFILE
+  struct timespec t_com_end;
+  clock_gettime(CLOCK_MONOTONIC, &t_com_end);
+  unsigned long long com_dur = 0;
+#ifdef SWITCH_STM
+  if (cur_cor) {
+    unsigned long long dt_com = (unsigned long long)((t_com_end.tv_sec - cur_cor->last_resumed_time.tv_sec) * 1000000000ULL + (t_com_end.tv_nsec - cur_cor->last_resumed_time.tv_nsec));
+    cur_cor->acc_time += dt_com;
+    cur_cor->last_resumed_time = t_com_end;
+    com_dur = cur_cor->acc_time;
+  }
+#else
+  com_dur = (unsigned long long)((t_com_end.tv_sec - tx->start_time.tv_sec) * 1000000000ULL + (t_com_end.tv_nsec - tx->start_time.tv_nsec));
+#endif
+  breakdown_commit_time += com_dur;
+#endif /* SWITCH_STM_TIME_PROFILE */
 
  end:
 #ifdef TM_STATISTICS

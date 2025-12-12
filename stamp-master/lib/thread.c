@@ -127,8 +127,14 @@ threadWait (void* argPtr)
             break;
         }
 #ifdef SWITCH_STM
+#ifdef SWITCH_STM_TIME_PROFILE
+        stm_profiling_thread_init();
+#endif
         switcher_init(&cor_array,thread_run);
         switcher_run(&cor_array);
+#ifdef SWITCH_STM_TIME_PROFILE
+        stm_profiling_thread_shutdown();
+#endif
 #else  /* !SWITCH_STM */        
         global_funcPtr(global_argPtr);
 #endif /* !SWITCH_STM */

@@ -40,6 +40,25 @@
 
 #ifdef SWITCH_STM
 #include "switch_table.h"
+#include "switcher.h"
+bool thread_barrier_exist = false;
+unsigned int switching_count = 0;
+
+#ifdef SWITCH_STM_TIME_PROFILE
+__thread struct timespec run_tx_start_time, run_tx_end_time;
+__thread struct timespec switch_start_time, switch_end_time;
+__thread struct timespec stage_start_time, stage_end_time;
+__thread struct timespec profiling_start_time;
+
+/* Global accumulators for profiling aggregation */
+unsigned long long global_commit_time = 0;
+unsigned long long global_abort_time = 0;
+unsigned long long global_wait_time = 0;
+unsigned long long global_switch_time = 0;
+unsigned long long global_other_time = 0;
+int active_profiling_threads = 0;
+#endif
+
 #endif /* SWITCH_STM*/
 
 /* ################################################################### *
@@ -134,6 +153,12 @@ __thread unsigned long stage2_time_sum = 0;
 __thread unsigned long do_switch_count = 0;
 __thread unsigned long no_switch_count = 0;
 #endif /* SWITCH_STM_TIME_PROFILE */
+#ifdef SWITCH_STM_TIME_PROFILE
+__thread unsigned long long breakdown_commit_time = 0;
+__thread unsigned long long breakdown_abort_time = 0;
+__thread unsigned long long breakdown_wait_time = 0;
+__thread unsigned long long breakdown_switch_time = 0;
+#endif
 #ifdef CONTENTION_INTENSITY
 __thread float contention_intensity = 0;
 #endif /* CONTENTION_INTENSITY */
@@ -312,6 +337,19 @@ signal_catcher(int sig)
 /* ################################################################### *
  * STM FUNCTIONS
  * ################################################################### */
+/* Global profiling summary printer */
+#ifdef SWITCH_STM_TIME_PROFILE
+void stm_profiling_print_summary(void) {
+    if (global_commit_time > 0 || global_abort_time > 0 || global_other_time > 0) {
+        printf("-----------<< BREAKDOWN >>-----------\n");
+        printf("Total Commit Time: %llu ms\n", global_commit_time / 1000000);
+        printf("Total Abort Time:  %llu ms\n", global_abort_time / 1000000);
+        printf("Total Wait Time:   %llu ms\n", global_wait_time / 1000000);
+        printf("Total Switch Time: %llu ms\n", global_switch_time / 1000000);
+        printf("Total Other Time:  %llu ms\n", global_other_time / 1000000);
+    }
+}
+#endif
 
 /*
  * Called once (from main) to initialize STM infrastructure.
@@ -383,6 +421,10 @@ stm_init(void)
 #endif /* SIGNAL_HANDLER */
   _tinystm.initialized = 1;
 
+#ifdef SWITCH_STM_TIME_PROFILE
+  atexit(stm_profiling_print_summary);
+#endif
+
 #ifdef CM_POLKA
   if(stm_set_parameter("cm_policy", "polka") == 0) {
     printf("WARNING! CAN'T SET CM POLICY TO DECIDED\n");
@@ -425,10 +467,29 @@ stm_exit(void)
 /*
  * Called by the CURRENT thread to initialize thread-local STM data.
  */
-_CALLCONV stm_tx_t *
+
+#ifdef SWITCH_STM
+#ifdef SWITCH_STM
+void switch_worker(void){
+    return;
+}
+#endif
+#endif
+
+_CALLCONV struct stm_tx *
 stm_init_thread(void)
 {
-  return int_stm_init_thread();
+#ifdef SWITCH_STM
+  if (cur_cor == NULL) {
+    // Pass address of cor_array pointer, and valid function pointer
+    switcher_init(&cor_array, switch_worker);
+    if (cor_array) {
+         cur_cor = coroutine_array_get(cor_array, 0);
+    }
+  }
+#endif /* SWITCH_STM */
+  stm_tx_t *tx = int_stm_init_thread();
+  return tx;
 }
 
 /*
@@ -438,6 +499,9 @@ _CALLCONV void
 stm_exit_thread(void)
 {
   TX_GET;
+#ifdef SWITCH_STM_TIME_PROFILE
+//   printf("Thread %p: Commit Time: %llu, Abort Time: %llu, Wait Time: %llu, Switch Time: %llu\n", (void*)pthread_self(), breakdown_commit_time, breakdown_abort_time, breakdown_wait_time, breakdown_switch_time);
+#endif
   int_stm_exit_thread(tx);
 }
 
@@ -454,6 +518,14 @@ _CALLCONV sigjmp_buf *
 stm_start(stm_tx_attr_t attr)
 {
   TX_GET;
+#ifdef SWITCH_STM
+  if(cur_cor == NULL){
+      //If cur_cor is NULL, it means this thread is just created (main thread)
+      //So we need to switch to the switcher logic (which runs coroutines)
+      switcher_run(&cor_array);
+      // Logic after return?
+  }
+#endif 
   return int_stm_start(tx, attr);
 }
 
@@ -1158,3 +1230,49 @@ stm_inc_clock(void)
   FETCH_INC_CLOCK;
 }
 
+#ifdef SWITCH_STM_TIME_PROFILE
+void stm_profiling_thread_init(void) {
+    clock_gettime(CLOCK_MONOTONIC, &profiling_start_time);
+    breakdown_commit_time = 0;
+    breakdown_abort_time = 0;
+    breakdown_wait_time = 0;
+    breakdown_switch_time = 0;
+    // Atomically increment active thread count
+    __sync_fetch_and_add(&active_profiling_threads, 1);
+}
+
+void stm_profiling_thread_shutdown(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    unsigned long long total_time = (unsigned long long)((now.tv_sec - profiling_start_time.tv_sec) * 1000000000ULL + (now.tv_nsec - profiling_start_time.tv_nsec));
+    
+    unsigned long long summed_breakdown = breakdown_commit_time + breakdown_abort_time + breakdown_wait_time + breakdown_switch_time;
+    unsigned long long other_time = 0;
+    if (total_time >= summed_breakdown) {
+        other_time = total_time - summed_breakdown;
+    } else {
+        other_time = total_time - summed_breakdown; // Let it underflow if it must, or clamp? Sticking to raw math.
+    }
+
+    // Print in ms granularity
+    /*
+    printf("Thread: %p, Commit: %llu, Abort: %llu, Wait: %llu, Switch: %llu, Other: %llu\n", 
+            (void *)pthread_self(), 
+            breakdown_commit_time / 1000000ULL, 
+            breakdown_abort_time / 1000000ULL, 
+            breakdown_wait_time / 1000000ULL, 
+            breakdown_switch_time / 1000000ULL, 
+            other_time / 1000000ULL);
+    */
+
+    // Atomic aggregation
+    __sync_fetch_and_add(&global_commit_time, breakdown_commit_time);
+    __sync_fetch_and_add(&global_abort_time, breakdown_abort_time);
+    __sync_fetch_and_add(&global_wait_time, breakdown_wait_time);
+    __sync_fetch_and_add(&global_switch_time, breakdown_switch_time);
+    __sync_fetch_and_add(&global_other_time, other_time);
+
+    // Atomically decrement active thread count
+    __sync_sub_and_fetch(&active_profiling_threads, 1);
+}
+#endif
