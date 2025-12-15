@@ -1269,8 +1269,10 @@ void stm_profiling_thread_init(void) {
     breakdown_abort_time = 0;
     breakdown_wait_time = 0;
     breakdown_switch_time = 0;
+#ifdef SWITCH_STM
     breakdown_switch_tx_count = 0;
     breakdown_commit_after_switch_count = 0;
+#endif
     // Atomically increment active thread count
     __sync_fetch_and_add(&active_profiling_threads, 1);
 }
@@ -1306,8 +1308,10 @@ void stm_profiling_thread_shutdown(void) {
     __sync_fetch_and_add(&global_switch_time, breakdown_switch_time);
     __sync_fetch_and_add(&global_other_time, other_time);
 
+#ifdef SWITCH_STM
     __sync_fetch_and_add(&global_switch_tx_count, breakdown_switch_tx_count);
     __sync_fetch_and_add(&global_commit_after_switch_count, breakdown_commit_after_switch_count);
+#endif
 
     // Atomically decrement active thread count
     __sync_sub_and_fetch(&active_profiling_threads, 1);
