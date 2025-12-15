@@ -45,6 +45,9 @@ parser.add_argument('-threads_list', type=lambda s: list(map(int, s.split())), d
 # Add argument for the path of the directory of the log files
 parser.add_argument('-log_path', type=str, default='./log', help='Path of the directory to store the log files (default: "./log"). \nFormat: string')
 
+# Add argument to parse the benchmarks list
+parser.add_argument('-benchmark', type=lambda s: s.split(), default=None, help='List of benchmarks to run. (default: run all). \nFormat: space-separated strings\ne.g. -benchmark "yada intruder"')
+
 # Add arguments - the default value is False
 parser.add_argument('-suicide', action='store_true', help='[Configuration] Run suicide simulation')
 parser.add_argument('-polka', action='store_true', help='[Configuration] Run polka simulation')
@@ -68,6 +71,7 @@ parser.add_argument('-profile', action='store_true', help='[Configuration] Enabl
 simulation_times = parser.parse_args().simulation_times
 threads_list = parser.parse_args().threads_list
 log_path = parser.parse_args().log_path
+benchmarks_list = parser.parse_args().benchmark
 validate_threads_list(threads_list)
 
 # Ensure the log directory exists
@@ -76,7 +80,7 @@ os.makedirs(log_path, exist_ok=True)
 # simulation_times =parse_simulation_times()
 # threads_list = parse_threads_list()
 
-print(f"simulation_times = {simulation_times}, threads_list = {threads_list}, log_path = {log_path}")
+print(f"simulation_times = {simulation_times}, threads_list = {threads_list}, log_path = {log_path}, benchmarks_list = {benchmarks_list}")
 
 
 # For all true-false arguments, if the argument is not provided, the corresponding simulation will not be run
@@ -84,31 +88,31 @@ print(f"simulation_times = {simulation_times}, threads_list = {threads_list}, lo
 args = parser.parse_args()
 
 if args.suicide:
-    simulate_suicide(simulation_times, threads_list, log_path, TP=args.time_profile)
+    simulate_suicide(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
 if args.polka:
-    simulate_polka(simulation_times, threads_list, log_path, TP=args.time_profile)
+    simulate_polka(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
 if args.shrink:
-    simulate_shrink(simulation_times, threads_list, log_path, TP=args.time_profile)
+    simulate_shrink(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
 if args.ats:
-    simulate_ats(simulation_times, threads_list, log_path, TP=args.time_profile)
+    simulate_ats(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
 if args.switch_rnd:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_rnd_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_rnd_CI_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=True, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_rnd_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=True, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_seq:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_laf:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_laf_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_laf_CI_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_laf_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 
 
 

@@ -97,19 +97,40 @@ def reset_makefile_stm_config_to_suicide():
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def run_tests(log_file="output.stm", threads=16):
-    tests = [
-        "./yada/yada -a15 -i yada/inputs/ttimeu1000000.2 -t",
-        "./intruder/intruder -a10 -l128 -n262144 -s1 -t",
-        "./kmeans/kmeans -m40 -n40 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
-        "./kmeans/kmeans -m15 -n15 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
-        "./bayes/bayes -v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t",
-        "./vacation/vacation -n2 -q90 -u98 -r1048576 -t4194304 -c",
-        "./vacation/vacation -n4 -q60 -u90 -r1048576 -t4194304 -c",
-        "./genome/genome -g16384 -s64 -n16777216 -t",
-        "./labyrinth/labyrinth -i labyrinth/inputs/random-x512-y512-z7-n512.txt -t",
-        "./ssca2/ssca2 -s20 -i1.0 -u1.0 -l3 -p3 -t"
-    ]
+def run_tests(log_file="output.stm", threads=16, benchmarks=None):
+    benchmark_map = {
+        "yada": "./yada/yada -a15 -i yada/inputs/ttimeu1000000.2 -t",
+        "intruder": "./intruder/intruder -a10 -l128 -n262144 -s1 -t",
+        "kmeans_low": "./kmeans/kmeans -m40 -n40 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
+        "kmeans_high": "./kmeans/kmeans -m15 -n15 -t0.00001 -i kmeans/inputs/random-n65536-d32-c16.txt -p",
+        "bayes": "./bayes/bayes -v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t",
+        "vacation_low": "./vacation/vacation -n2 -q90 -u98 -r1048576 -t4194304 -c",
+        "vacation_high": "./vacation/vacation -n4 -q60 -u90 -r1048576 -t4194304 -c",
+        "genome": "./genome/genome -g16384 -s64 -n16777216 -t",
+        "labyrinth": "./labyrinth/labyrinth -i labyrinth/inputs/random-x512-y512-z7-n512.txt -t",
+        "ssca2": "./ssca2/ssca2 -s20 -i1.0 -u1.0 -l3 -p3 -t"
+    }
+
+    tests = []
+    if benchmarks:
+        for b in benchmarks:
+            if b in benchmark_map:
+                tests.append(benchmark_map[b])
+            else:
+                 print(f"Warning: Benchmark '{b}' not found.")
+    else:
+        tests = [
+            benchmark_map["yada"],
+            benchmark_map["intruder"],
+            benchmark_map["kmeans_low"],
+            benchmark_map["kmeans_high"],
+            benchmark_map["bayes"],
+            benchmark_map["vacation_low"],
+            benchmark_map["vacation_high"],
+            benchmark_map["genome"],
+            benchmark_map["labyrinth"],
+            benchmark_map["ssca2"]
+        ]
 
     for test in tests:
         timeout = 600
@@ -175,7 +196,7 @@ def run_tests(log_file="output.stm", threads=16):
     except psutil.NoSuchProcess:
         pass
 
-def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
+def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP=False, benchmarks=None):
     ###############SUICIDE###############
     print("###############SUICIDE###############")
     print("###############SUICIDE###############")
@@ -221,7 +242,7 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP
             if TP:
                 log_name = f"suicide_TP_{threads}.stm"
             log_file = os.path.join(log_path, log_name)
-            run_tests(log_file=log_file, threads=threads)
+            run_tests(log_file=log_file, threads=threads, benchmarks=benchmarks)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -229,7 +250,7 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of suicide! - Current time: {current_time}")
 
-def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
+def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=False, benchmarks=None):
     ###############POLKA###############
     print("###############POLKA###############")
     print("###############POLKA###############")
@@ -284,7 +305,7 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=F
             if TP:
                 log_name = f"polka_TP_{threads}.stm"
             log_file = os.path.join(log_path, log_name)
-            run_tests(log_file=log_file, threads=threads)
+            run_tests(log_file=log_file, threads=threads, benchmarks=benchmarks)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -292,7 +313,7 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=F
     current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
     print(f"Done all the iterations of polka! - Current time: {current_time}")
 
-def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
+def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log", TP=False, benchmarks=None):
     ###############ATS#################
     print("#################ATS#################")
     print("#################ATS#################")
@@ -348,7 +369,7 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log", TP=Fal
             if TP:
                 log_name = f"ats_TP_{threads}.stm"
             log_file = os.path.join(log_path, log_name)
-            run_tests(log_file=log_file, threads=threads)
+            run_tests(log_file=log_file, threads=threads, benchmarks=benchmarks)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -357,7 +378,7 @@ def simulate_ats(simulation_times=1, threads_list=[16], log_path="./log", TP=Fal
     print(f"Done all the iterations of ats! - Current time: {current_time}")
 
 
-def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=False):
+def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=False, benchmarks=None):
     ###############SHRINK###############
     print("###############SHRINK###############")
     print("###############SHRINK###############")
@@ -421,7 +442,7 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=
             if TP:
                 log_name = f"shrink_TP_{threads}.stm"
             log_file = os.path.join(log_path, log_name)
-            run_tests(log_file=log_file, threads=threads)
+            run_tests(log_file=log_file, threads=threads, benchmarks=benchmarks)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 
@@ -436,7 +457,7 @@ def simulate_shrink(simulation_times=1, threads_list=[16], log_path="./log", TP=
     with open('stamp-master/common/Makefile.stm', 'w') as f:
         f.write(modified_makefile_content)
 
-def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='seq', CI=True, TP=False, PROFILE=False, log_path="./log"):
+def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='seq', CI=True, TP=False, PROFILE=False, log_path="./log", benchmarks=None):
     ###############SWITCH_STM###############
     print("###############SWITCH_STM###############")
     print("###############SWITCH_STM###############")
@@ -591,7 +612,7 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
     for i in range(simulation_times):
         for threads in threads_list:
             log_file = os.path.join(log_path, f"{switch_log_name}_{threads}.stm")
-            run_tests(log_file=log_file, threads=threads)
+            run_tests(log_file=log_file, threads=threads, benchmarks=benchmarks)
         current_time = subprocess.run(["date", "+%Y-%m-%d %H:%M:%S"], capture_output=True, text=True).stdout.strip()
         print(f"Done the iteration {i} - Current time: {current_time}")
 

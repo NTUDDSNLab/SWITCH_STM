@@ -105,7 +105,7 @@ def parse_log_file(filepath):
             current_benchmark = get_benchmark_name(line)
             current_breakdown = {}
         
-        elif line == "-----------<< BREAKDOWN >>-----------":
+        elif line == "-----------<< PROFILE >>-----------":
             # Breakdown section follows
             # Expecting 5 lines
             try:

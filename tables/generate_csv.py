@@ -9,11 +9,11 @@ def parse_log_files(log_dir, output_csv='stm_results.csv'):
     exec_patterns = {
         'yada': r'Executing: ./yada/yada',
         'intruder': r'Executing: ./intruder/intruder',
-        'kmeans_high': r'Executing: ./kmeans/kmeans -m40 -n40',
-        'kmeans_low': r'Executing: ./kmeans/kmeans -m15 -n15',
+        'kmeans_low': r'Executing: ./kmeans/kmeans -m40 -n40',
+        'kmeans_high': r'Executing: ./kmeans/kmeans -m15 -n15',
         'bayes': r'Executing: ./bayes/bayes',
-        'vacation_high': r'Executing: ./vacation/vacation -n2 -q90 -u98',
-        'vacation_low': r'Executing: ./vacation/vacation -n4 -q60 -u90',
+        'vacation_low': r'Executing: ./vacation/vacation -n2 -q90 -u98',
+        'vacation_high': r'Executing: ./vacation/vacation -n4 -q60 -u90',
         'genome': r'Executing: ./genome/genome',
         'labyrinth': r'Executing: ./labyrinth/labyrinth',
         'ssca2': r'Executing: ./ssca2/ssca2'
