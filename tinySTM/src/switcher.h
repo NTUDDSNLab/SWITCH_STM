@@ -64,6 +64,9 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
    switch (SCHEDULE_POLICY) {
       case 0:
          //random
+         if (MAX_COR_PER_THREAD <= 1) {
+            return cur_decision;
+         }
          while(cur_decision == decision){
             decision = rand() % MAX_COR_PER_THREAD;
          }
