@@ -34,7 +34,7 @@ coroutine_array_create(void)
     ca->main_co = aco_create(NULL, NULL, 0, NULL, NULL);
     
     /* initialize shared stack */
-    ca->sstk = malloc(5 * sizeof(aco_share_stack_t*));
+    ca->sstk = malloc(MAX_COR_PER_THREAD * sizeof(aco_share_stack_t*));
     for (int i = 0; i < MAX_COR_PER_THREAD ; i++) {
         ca->sstk[i] = aco_share_stack_new(0);
     }
@@ -65,6 +65,7 @@ void coroutine_array_delete(coroutine_array_t* ca)
     for (int i = 0; i < MAX_COR_PER_THREAD ; i++) {
         aco_share_stack_destroy(ca->sstk[i]);
     }
+    free(ca->sstk);
     ca->sstk = NULL;
 
     free(ca);
