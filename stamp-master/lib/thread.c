@@ -111,6 +111,9 @@ extern bool thread_barrier_exist;
 #ifdef TM_STATISTICS3
 extern __thread long num_aborted;
 extern __thread long num_committed;
+static long global_num_committed = 0;
+static long global_num_aborted = 0;
+static THREAD_MUTEX_T global_stats_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif /* TM_STATISTICS3 */
 /* =============================================================================
  * threadWait
@@ -127,6 +130,12 @@ threadWait (void* argPtr)
     while (1) {
         THREAD_BARRIER(global_barrierPtr, threadId); /* wait for start parallel */
         if (global_doShutdown) {
+#ifdef TM_STATISTICS3
+            THREAD_MUTEX_LOCK(global_stats_lock);
+            global_num_committed += num_committed;
+            global_num_aborted += num_aborted;
+            THREAD_MUTEX_UNLOCK(global_stats_lock);
+#endif /* TM_STATISTICS3 */
             break;
         }
 #ifdef SWITCH_STM
@@ -200,6 +209,10 @@ thread_startup (long numThread)
                       &threadWait,
                       &global_threadIds[i]);
     }
+#ifdef TM_STATISTICS3
+    global_num_committed = 0;
+    global_num_aborted = 0;
+#endif
 
     /*
      * Wait for primary thread to call thread_start
@@ -258,11 +271,7 @@ thread_shutdown ()
        }
     #endif /* SWITCH_STM_TIME_PROFILE */
 #endif /* SWITCH_STM */
-#ifdef TM_STATISTICS3
-    if (global_threadId == 0) {
-        printf("committed:%ld, aborted:%ld \n",num_committed,num_aborted);
-   }
-#endif /* TM_STATISTICS3 */
+
 
     /* Make secondary threads exit wait() */
     global_doShutdown = TRUE;
@@ -274,6 +283,16 @@ thread_shutdown ()
     for (i = 1; i < numThread; i++) {
         THREAD_JOIN(global_threads[i]);
     }
+
+#ifdef TM_STATISTICS3
+    if (global_threadId == 0) {
+        THREAD_MUTEX_LOCK(global_stats_lock);
+        global_num_committed += num_committed;
+        global_num_aborted += num_aborted;
+        THREAD_MUTEX_UNLOCK(global_stats_lock);
+        printf("committed:%ld, aborted:%ld \n", global_num_committed, global_num_aborted);
+    }
+#endif /* TM_STATISTICS3 */
 
     THREAD_BARRIER_FREE(global_barrierPtr);
     global_barrierPtr = NULL;
