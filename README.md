@@ -118,7 +118,7 @@ Generates plots from raw log data.
 **1. Prepare Data:**
 Create a subfolder inside `plot/` and place your raw `.stm` log files there.
 
-**2. Run Plotter:**
+<!-- **2. Run Plotter:**
 ```bash
 python3 plot.py <base_path> <threads_list> <STM_labels...>
 ```
@@ -140,7 +140,7 @@ Extracts statistics (avg time, error counts) from a single `.stm` file.
 
 ```bash
 python parse_stm.py path/to/your/stm_file.stm
-```
+``` -->
 
 ### Profiling Execution Time Breakdown
 When `SWITCH_STM_TIME_PROFILE` is enabled (e.g., `-switch_rnd_TP`):
