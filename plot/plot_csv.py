@@ -6,34 +6,63 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(
-        description="""Description:
-    This script generates execution time plots from a CSV file containing benchmark results.
-    It creates a 2x5 grid of plots, one for each benchmark, showing execution time vs threads.""",
+        description="""SWITCH_STM Benchmark Result Plotter
+
+This script generates execution time or abort ratio plots from a CSV file containing 
+benchmark results. It creates a 2x5 grid of plots, one for each benchmark, showing 
+metrics vs thread counts.
+
+CSV Format:
+    Required columns: Benchmark, Configuration, Threads
+    For time metric: Avg Execution Time (s)
+    For abort metric: Avg Commits, Avg Aborts
+    
+Output:
+    PNG file with 2x5 subplot grid, one subplot per benchmark.""",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""Examples:
-    # Plot all configurations from data.csv
-    python3 plot/plot_csv.py data.csv
+    # Plot all configurations from data.csv with execution time (default)
+    python3 plot/plot_csv.py -i data.csv
 
     # Plot only 'suicide' and 'switch_rnd' configurations
-    python3 plot/plot_csv.py data.csv suicide switch_rnd
+    python3 plot/plot_csv.py -i data.csv -c "suicide switch_rnd"
     
-    # Save to custom file
-    python3 plot/plot_csv.py data.csv -o my_plot.png"""
+    # Plot threads from 1 to 32 (range format)
+    python3 plot/plot_csv.py -i data.csv -r "1-32"
+    
+    # Plot specific thread counts only
+    python3 plot/plot_csv.py -i data.csv -r "1 2 4 8 16 32"
+    
+    # Plot abort ratios for specific configurations and thread range
+    python3 plot/plot_csv.py -i data.csv -c "norec swisstm" -r "1-64" -m abort
+    
+    # Save to custom output file
+    python3 plot/plot_csv.py -i data.csv -o my_plot.png
+    
+    # Full example with all options
+    python3 plot/plot_csv.py -i tables/raw_data/128_threads.csv -c "suicide switch_laf_CI_TP" -r "1 2 4 8 16 32 64" -m time -o results.png"""
     )
 
-    parser.add_argument('csv_file', help="Path to the CSV file containing the data.")
-    parser.add_argument('configs', nargs='*', help="Optional list of configurations to plot.")
-    parser.add_argument('-o', '--output', default='execution_time_results.png', help="Output filename.")
-    parser.add_argument('-m', '--metric', choices=['time', 'abort'], default='time', help="Metric to plot: 'time' (Execution Time) or 'abort' (Abort Ratio). Default is 'time'.")
+    parser.add_argument('-i', '--input', required=True, 
+                        help="Path to the input CSV file containing benchmark data.")
+    parser.add_argument('-c', '--configs', type=str, default=None,
+                        help='Space-separated list of configurations to plot (e.g., "suicide switch_rnd norec"). If not specified, all configurations will be plotted.')
+    parser.add_argument('-r', '--range', type=str, default=None,
+                        help='Thread range to plot. Can be "min-max" (e.g., "1-32") or space-separated values (e.g., "1 2 4 8 16 32"). If not specified, all threads will be plotted.')
+    parser.add_argument('-o', '--output', default='execution_time_results.png', 
+                        help="Output filename for the plot (default: execution_time_results.png).")
+    parser.add_argument('-m', '--metric', choices=['time', 'abort'], default='time', 
+                        help="Metric to plot: 'time' for Execution Time (default) or 'abort' for Abort Ratio.")
 
     args = parser.parse_args()
 
-    csv_file = args.csv_file
+    csv_file = args.input
     if not os.path.exists(csv_file):
         print(f"Error: File '{csv_file}' not found.")
         sys.exit(1)
 
-    target_configs = args.configs
+    # Parse configurations from space-separated string
+    target_configs = args.configs.split() if args.configs else []
 
     try:
         df = pd.read_csv(csv_file)
@@ -43,6 +72,24 @@ def main():
 
     # Clean up column names
     df.columns = df.columns.str.strip()
+
+    # Filter threads by range if specified
+    if args.range:
+        try:
+            if '-' in args.range and args.range.count('-') == 1:
+                # Range format: "min-max"
+                min_threads, max_threads = map(int, args.range.split('-'))
+                df = df[(df['Threads'] >= min_threads) & (df['Threads'] <= max_threads)]
+                print(f"Filtering threads in range: {min_threads} to {max_threads}")
+            else:
+                # Space-separated values
+                thread_values = list(map(int, args.range.split()))
+                df = df[df['Threads'].isin(thread_values)]
+                print(f"Filtering threads: {thread_values}")
+        except ValueError as e:
+            print(f"Error parsing thread range '{args.range}': {e}")
+            print("Range should be 'min-max' (e.g., '1-32') or space-separated values (e.g., '1 2 4 8')")
+            sys.exit(1)
 
     # Required columns
     common_columns = ['Benchmark', 'Configuration', 'Threads']

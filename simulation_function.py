@@ -68,6 +68,7 @@ def reset_makefile_config_to_suicide():
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
     modified_makefile_content = makefile_content.replace('DEFINES += -DCM=CM_SUICIDE','# DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DCM=CM_MODULAR','# DEFINES += -DCM=CM_MODULAR') \
                                                 .replace('DEFINES += -DSWITCH_STM','# DEFINES += -DSWITCH_STM') \
                                                 .replace('DEFINES += -DCONTENTION_INTENSITY','# DEFINES += -DCONTENTION_INTENSITY') \
                                                 .replace('DEFINES += -DCM_POLKA','# DEFINES += -DCM_POLKA') \
@@ -212,6 +213,14 @@ def simulate_suicide(simulation_times=1, threads_list=[16], log_path="./log", TP
     reset_makefile_config_to_suicide()
     reset_makefile_stm_config_to_suicide()
 
+    # Explicitly enable CM_SUICIDE
+    with open('tinySTM/Makefile', 'r') as f:
+        makefile_content = f.read()
+    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM=CM_SUICIDE','DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('DEFINES += -DCM=CM_MODULAR','# DEFINES += -DCM=CM_MODULAR')
+    with open('tinySTM/Makefile', 'w') as f:
+        f.write(modified_makefile_content)
+
     # If TP is true ,emable SWITCH_STM time profile
     if (TP == True):
         with open('tinySTM/Makefile', 'r') as f:
@@ -267,10 +276,18 @@ def simulate_polka(simulation_times=1, threads_list=[16], log_path="./log", TP=F
     reset_makefile_config_to_suicide()
     reset_makefile_stm_config_to_suicide()
 
-    # Modify the configuration of tinySTM to POLKA
+    # Modify the configuration of tinySTM to POLKA (Polka requires CM_MODULAR and WRITE_BACK_ETL)
     with open('tinySTM/Makefile', 'r') as f:
         makefile_content = f.read()
-    modified_makefile_content = makefile_content.replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
+    # Set DESIGN to WRITE_BACK_ETL (required for CM_MODULAR)
+    modified_makefile_content = makefile_content.replace('DEFINES += -DDESIGN=WRITE_BACK_CTL','# DEFINES += -DDESIGN=WRITE_BACK_CTL') \
+                                                .replace('DEFINES += -DDESIGN=WRITE_THROUGH','# DEFINES += -DDESIGN=WRITE_THROUGH') \
+                                                .replace('DEFINES += -DDESIGN=MODULAR','# DEFINES += -DDESIGN=MODULAR') \
+                                                .replace('# DEFINES += -DDESIGN=WRITE_BACK_ETL','DEFINES += -DDESIGN=WRITE_BACK_ETL')
+    # Enable CM_MODULAR and CM_POLKA
+    modified_makefile_content = modified_makefile_content.replace('# DEFINES += -DCM=CM_MODULAR','DEFINES += -DCM=CM_MODULAR') \
+                                                .replace('DEFINES += -DCM=CM_SUICIDE','# DEFINES += -DCM=CM_SUICIDE') \
+                                                .replace('# DEFINES += -DCM_POLKA','DEFINES += -DCM_POLKA') \
                                                 .replace('DEFINES += -UCM_POLKA','# DEFINES += -UCM_POLKA')
     with open('tinySTM/Makefile', 'w') as f:
         f.write(modified_makefile_content)
