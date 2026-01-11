@@ -62,6 +62,10 @@ parser.add_argument('-switch_laf', action='store_true', help='[Configuration] Ru
 parser.add_argument('-switch_laf_CI', action='store_true', help='[Configuration] Run switch_laf_CI simulation')
 parser.add_argument('-switch_laf_CI_TP', action='store_true', help='[Configuration] Run switch_laf_CI_TP simulation')
 parser.add_argument('-switch_laf_TP', action='store_true', help='[Configuration] Run switch_laf_TP simulation')
+parser.add_argument('-switch_maf', action='store_true', help='[Configuration] Run switch_maf simulation')
+parser.add_argument('-switch_maf_CI', action='store_true', help='[Configuration] Run switch_maf_CI simulation')
+parser.add_argument('-switch_maf_CI_TP', action='store_true', help='[Configuration] Run switch_maf_CI_TP simulation')
+parser.add_argument('-switch_maf_TP', action='store_true', help='[Configuration] Run switch_maf_TP simulation')
 parser.add_argument('-time_profile', action='store_true', help='[Configuration] Enable SWITCH_STM time profile')
 parser.add_argument('-profile', action='store_true', help='[Configuration] Enable both time breakdown and PSCR profiling')
 
@@ -113,6 +117,14 @@ if args.switch_laf_CI_TP:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 if args.switch_laf_TP:
     simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+if args.switch_maf:
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+if args.switch_maf_CI:
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+if args.switch_maf_CI_TP:
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+if args.switch_maf_TP:
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
 
 
 

@@ -100,6 +100,33 @@ switcher_decide(coroutine_array_t* ca, int cur_decision)
             }
          }
 
+          break;
+
+      case 3:
+         // most abort first
+         decision = 0;
+         cor = coroutine_array_get(cor_array, 0); 
+         int max_abort_count = -1; // Initialize with -1 to ensure any valid count (>=0) is picked if possible
+         
+         // Find the first valid candidate to initialize max_abort_count
+         for (int i = 0; i < MAX_COR_PER_THREAD; i++) {
+            cor = coroutine_array_get(cor_array, i); 
+            if (cor->co->is_end == 0) {
+               decision = i;
+               max_abort_count = cor->abort_count;
+               break;
+             }
+         }
+         
+         // Iterate starting from the initialized decision to find max
+         for (int i = decision; i < MAX_COR_PER_THREAD; i++) {
+            cor = coroutine_array_get(cor_array, i);
+            if (cor->abort_count > max_abort_count && cor->co->is_end == 0 && cor->unswitchable == 0) {
+               decision = i;
+               max_abort_count = cor->abort_count;
+            }
+         }
+
          break;
    }
    return decision;

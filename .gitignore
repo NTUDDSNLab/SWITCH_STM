@@ -23,3 +23,8 @@ stamp-master/labyrinth/labyrinth
 stamp-master/ssca2/ssca2
 stamp-master/vacation/vacation
 stamp-master/yada/yada
+# images
+*.png
+# tables
+*.csv
+*.log

@@ -520,7 +520,17 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
         with open('tinySTM/include/param.h', 'r') as f:
             makefile_content = f.read()
         modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     2 ') \
-                                                    .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     2 ')
+                                                    .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     2 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     3 ','#define SCHEDULE_POLICY                     2 ')
+        with open('tinySTM/include/param.h', 'w') as f:
+            f.write(modified_makefile_content)
+
+    elif (schedule_policy == 'maf'):
+        with open('tinySTM/include/param.h', 'r') as f:
+            makefile_content = f.read()
+        modified_makefile_content = makefile_content.replace('#define SCHEDULE_POLICY                     0 ','#define SCHEDULE_POLICY                     3 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     1 ','#define SCHEDULE_POLICY                     3 ') \
+                                                    .replace('#define SCHEDULE_POLICY                     2 ','#define SCHEDULE_POLICY                     3 ')
         with open('tinySTM/include/param.h', 'w') as f:
             f.write(modified_makefile_content)
         
@@ -619,6 +629,10 @@ def simulate_switch_stm(simulation_times=1, threads_list=[16], schedule_policy='
         switch_log_name = 'switch_laf'
     elif (schedule_policy == 'laf' and CI == True):
         switch_log_name = 'switch_laf_CI'
+    elif (schedule_policy == 'maf' and CI == False):
+        switch_log_name = 'switch_maf'
+    elif (schedule_policy == 'maf' and CI == True):
+        switch_log_name = 'switch_maf_CI'
     else:
         switch_log_name = 'some_wierd_switch_mode'
     
