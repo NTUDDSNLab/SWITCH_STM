@@ -108,6 +108,10 @@ def parse_log_files(log_dir, output_csv='stm_results.csv'):
                         commits += int(c)
                         aborts += int(a)
             
+            # Extract RSS
+            rss_match = re.search(r'Maximum resident set size \(kbytes\):\s+(\d+)', chunk)
+            rss = int(rss_match.group(1)) if rss_match else 0
+            
             # Store result
             if benchmark_name not in results: results[benchmark_name] = {}
             if config not in results[benchmark_name]: results[benchmark_name][config] = {}
@@ -116,7 +120,9 @@ def parse_log_files(log_dir, output_csv='stm_results.csv'):
             results[benchmark_name][config][threads].append({
                 'time': exe_time,
                 'commits': commits,
-                'aborts': aborts
+                'commits': commits,
+                'aborts': aborts,
+                'rss': rss
             })
 
     # Write CSV
@@ -124,7 +130,7 @@ def parse_log_files(log_dir, output_csv='stm_results.csv'):
         with open(output_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             # Header
-            writer.writerow(['Benchmark', 'Configuration', 'Threads', 'Avg Execution Time (s)', 'Time Std Dev', 'Abort Rate', 'Avg Commits', 'Avg Aborts', 'Samples'])
+            writer.writerow(['Benchmark', 'Configuration', 'Threads', 'Avg Execution Time (s)', 'Time Std Dev', 'Abort Rate', 'Avg Commits', 'Avg Aborts', 'Avg RSS (kB)', 'Samples'])
             
             # Sort keys for consistent output
             for bench in sorted(results.keys()):
@@ -140,11 +146,12 @@ def parse_log_files(log_dir, output_csv='stm_results.csv'):
                         
                         avg_commits = statistics.mean([r['commits'] for r in runs])
                         avg_aborts = statistics.mean([r['aborts'] for r in runs])
+                        avg_rss = statistics.mean([r['rss'] for r in runs])
                         
                         total_events = avg_commits + avg_aborts
                         abort_rate = avg_aborts / total_events if total_events > 0 else 0.0
                         
-                        writer.writerow([bench, conf, thr, f"{avg_time:.4f}", f"{std_time:.4f}", f"{abort_rate:.4f}", f"{avg_commits:.1f}", f"{avg_aborts:.1f}", len(runs)])
+                        writer.writerow([bench, conf, thr, f"{avg_time:.4f}", f"{std_time:.4f}", f"{abort_rate:.4f}", f"{avg_commits:.1f}", f"{avg_aborts:.1f}", f"{avg_rss:.1f}", len(runs)])
         
         print(f"Successfully wrote results to {output_csv}")
         

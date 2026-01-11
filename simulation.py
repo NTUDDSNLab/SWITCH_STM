@@ -68,6 +68,7 @@ parser.add_argument('-switch_maf_CI_TP', action='store_true', help='[Configurati
 parser.add_argument('-switch_maf_TP', action='store_true', help='[Configuration] Run switch_maf_TP simulation')
 parser.add_argument('-time_profile', action='store_true', help='[Configuration] Enable SWITCH_STM time profile')
 parser.add_argument('-profile', action='store_true', help='[Configuration] Enable both time breakdown and PSCR profiling')
+parser.add_argument('-rss', action='store_true', help='[Configuration] Measure memory usage with /usr/bin/time -v')
 
 
 
@@ -92,39 +93,39 @@ print(f"simulation_times = {simulation_times}, threads_list = {threads_list}, lo
 args = parser.parse_args()
 
 if args.suicide:
-    simulate_suicide(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
+    simulate_suicide(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list, RSS=args.rss)
 if args.polka:
-    simulate_polka(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
+    simulate_polka(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list, RSS=args.rss)
 if args.shrink:
-    simulate_shrink(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
+    simulate_shrink(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list, RSS=args.rss)
 if args.ats:
-    simulate_ats(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list)
+    simulate_ats(simulation_times, threads_list, log_path, TP=args.time_profile, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_rnd:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_rnd_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_rnd_CI_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_rnd_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='rnd', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_seq:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='seq', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_laf:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_laf_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_laf_CI_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_laf_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='laf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_maf:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_maf_CI:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=args.time_profile or args.profile, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_maf_CI_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=True, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 if args.switch_maf_TP:
-    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list)
+    simulate_switch_stm(simulation_times, threads_list, schedule_policy='maf', CI=False, TP=True, PROFILE=args.profile, log_path=log_path, benchmarks=benchmarks_list, RSS=args.rss)
 
 
 
