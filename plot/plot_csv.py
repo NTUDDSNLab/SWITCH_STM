@@ -27,28 +27,20 @@ Output:
     # Plot only 'suicide' and 'switch_rnd' configurations
     python3 plot/plot_csv.py -i data.csv -c "suicide switch_rnd"
     
-    # Plot threads from 1 to 32 (range format)
-    python3 plot/plot_csv.py -i data.csv -r "1-32"
-    
-    # Plot specific thread counts only
-    python3 plot/plot_csv.py -i data.csv -r "1 2 4 8 16 32"
-    
-    # Plot abort ratios for specific configurations and thread range
-    python3 plot/plot_csv.py -i data.csv -c "norec swisstm" -r "1-64" -m abort
+    # Plot abort ratios for specific configurations
+    python3 plot/plot_csv.py -i data.csv -c "norec swisstm" -m abort
     
     # Save to custom output file
     python3 plot/plot_csv.py -i data.csv -o my_plot.png
     
     # Full example with all options
-    python3 plot/plot_csv.py -i tables/raw_data/128_threads.csv -c "suicide switch_laf_CI_TP" -r "1 2 4 8 16 32 64" -m time -o results.png"""
+    python3 plot/plot_csv.py -i tables/raw_data/128_threads.csv -c "suicide switch_laf_CI_TP" -m time -o results.png"""
     )
 
     parser.add_argument('-i', '--input', required=True, 
                         help="Path to the input CSV file containing benchmark data.")
     parser.add_argument('-c', '--configs', type=str, default=None,
                         help='Space-separated list of configurations to plot (e.g., "suicide switch_rnd norec"). If not specified, all configurations will be plotted.')
-    parser.add_argument('-r', '--range', type=str, default=None,
-                        help='Thread range to plot. Can be "min-max" (e.g., "1-32") or space-separated values (e.g., "1 2 4 8 16 32"). If not specified, all threads will be plotted.')
     parser.add_argument('-o', '--output', default='execution_time_results.png', 
                         help="Output filename for the plot (default: execution_time_results.png).")
     parser.add_argument('-m', '--metric', choices=['time', 'abort'], default='time', 
@@ -72,24 +64,6 @@ Output:
 
     # Clean up column names
     df.columns = df.columns.str.strip()
-
-    # Filter threads by range if specified
-    if args.range:
-        try:
-            if '-' in args.range and args.range.count('-') == 1:
-                # Range format: "min-max"
-                min_threads, max_threads = map(int, args.range.split('-'))
-                df = df[(df['Threads'] >= min_threads) & (df['Threads'] <= max_threads)]
-                print(f"Filtering threads in range: {min_threads} to {max_threads}")
-            else:
-                # Space-separated values
-                thread_values = list(map(int, args.range.split()))
-                df = df[df['Threads'].isin(thread_values)]
-                print(f"Filtering threads: {thread_values}")
-        except ValueError as e:
-            print(f"Error parsing thread range '{args.range}': {e}")
-            print("Range should be 'min-max' (e.g., '1-32') or space-separated values (e.g., '1 2 4 8')")
-            sys.exit(1)
 
     # Required columns
     common_columns = ['Benchmark', 'Configuration', 'Threads']

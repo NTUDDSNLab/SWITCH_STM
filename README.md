@@ -1,6 +1,7 @@
-# SwitchSTM: Enabling Transaction Switch on Loop-based Software Transactional Memory Applications through Coroutine
+# SwitchSTM: Enabling Transaction Switch in Loop-based Software Transactional Memory Applications via Coroutines
 
-A research framework for simulating and profiling Software Transactional Memory (STM) strategies, introducing **SWITCH_STM** variants.
+SwitchSTM enables **transaction switch** built on the top of [TinySTM](https://github.com/patrickmarlier/tinystm). 
+SwitchSTM aims to address the furtile stall issue with lightweight coroutine switching.
 
 ## Table of Contents
 - [Requirements](#requirements)
